@@ -12,8 +12,8 @@
 //
 // One stylesheet, in before the document has a body, so a light page is never
 // seen light first. Main frame only: the filter on the main document turns
-// its frames over with it, and a frame turned over again would come back
-// light.
+// its frames over with it, and each frame is turned back whole, as its site
+// made it, since the pictures inside are out of this stylesheet's reach.
 
 enum DarkPages {
     /// View › Dark Pages. Off unless asked for.
@@ -38,13 +38,14 @@ enum DarkPages {
       sheet.media = 'screen';
       sheet.textContent = [
         `html{filter:${turn} !important}`,
-        // Turned over twice: as the site made them.
-        `img:not(picture img),picture,video,canvas,svg image,embed,object,[${mark}]{filter:${turn} !important}`,
-        `iframe[src*="youtube"],iframe[src*="youtu.be"],iframe[src*="vimeo"],iframe[src*="dailymotion"],` +
-          `iframe[src*="loom.com"],iframe[src*="wistia"]{filter:${turn} !important}`,
+        // Turned over twice: as the site made them. Every frame too — a
+        // video player, a map, a post from another site: this stylesheet
+        // can't reach the pictures inside, so the frame is shown whole as
+        // its site made it rather than with its pictures as negatives.
+        `img:not(picture img),picture,video,canvas,svg image,iframe,frame,embed,object,[${mark}]{filter:${turn} !important}`,
         // Inside something already turned over twice, a picture is right as
         // it is: a third time would turn it back into a negative.
-        `[${mark}] img,[${mark}] picture,[${mark}] video,[${mark}] canvas,[${mark}] [${mark}]{filter:none !important}`
+        `[${mark}] :is(img,picture,video,canvas,svg image,iframe,frame,embed,object,[${mark}]){filter:none !important}`
       ].join('');
       const place = () => (document.head || document.documentElement).appendChild(sheet);
       place();
@@ -94,38 +95,54 @@ enum DarkPages {
 
       // A picture drawn as a background, which the stylesheet can't name by
       // its tag. Gradients stay out: they are colours, and turn with the page.
+      // One that has lost its picture since is let go again.
+      const look = (el) => {
+        if (el === document.documentElement || el === document.body) return;
+        const image = getComputedStyle(el).backgroundImage;
+        const picture = !!image && image.includes('url(');
+        if (picture && !el.hasAttribute(mark) && !(el.parentElement && el.parentElement.closest(`[${mark}]`))) {
+          el.setAttribute(mark, '');
+        } else if (!picture && el.hasAttribute(mark)) {
+          el.removeAttribute(mark);
+        }
+      };
       const scan = (root, budget) => {
         if (!root || root.nodeType !== 1) return budget;
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-        for (let el = root; el && budget > 0; el = walker.nextNode(), budget--) {
-          if (el === document.documentElement || el === document.body || el.hasAttribute(mark)) continue;
-          const image = getComputedStyle(el).backgroundImage;
-          if (image && image.includes('url(') && !(el.parentElement && el.parentElement.closest(`[${mark}]`))) {
-            el.setAttribute(mark, '');
-          }
-        }
+        for (let el = root; el && budget > 0; el = walker.nextNode(), budget--) look(el);
         return budget;
       };
 
-      // What arrives later: more of the page, or a framework that took the
-      // stylesheet out while putting its own document in place.
+      // What arrives later: more of the page; a player that gives an element
+      // its picture after putting it in, through its style or a class; or a
+      // framework that took the stylesheet out while putting its own
+      // document in place.
       let waiting = [];
+      const touched = new Set();
       let timer = 0;
       let early = false;
       new MutationObserver((records) => {
         if (!sheet.isConnected) place();
         if (!early && document.body) { early = true; check(); }
         for (const record of records) {
+          if (record.type === 'attributes') { touched.add(record.target); continue; }
           for (const node of record.addedNodes) if (node.nodeType === 1) waiting.push(node);
         }
         if (waiting.length > 2000) waiting = waiting.slice(-2000);
-        if (timer || !waiting.length) return;
+        // A page animating hundreds of things through their style: looking
+        // at every one would cost more than it finds.
+        if (touched.size > 500) touched.clear();
+        if (timer || (!waiting.length && !touched.size)) return;
         timer = setTimeout(() => {
           timer = 0;
           let budget = 4000;
           for (const node of waiting.splice(0)) budget = scan(node, budget);
+          for (const el of touched) if (el.isConnected) look(el);
+          touched.clear();
         }, 250);
-      }).observe(document.documentElement, { childList: true, subtree: true });
+      }).observe(document.documentElement, {
+        childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class']
+      });
 
       window.__searchDark = {
         on() { wanted = true; sheet.media = 'screen'; check(); },
