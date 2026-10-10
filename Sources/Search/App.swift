@@ -115,6 +115,15 @@ struct SearchApp: App {
                     .shortcut("view.reloadOrigin")
                 Button("Reading Mode") { browser.toggleReader() }
                     .shortcut("view.reader")
+                Toggle("Text Only in Reading Mode", isOn: Binding(
+                    get: { browser.prefs.readerTextOnly },
+                    set: { browser.prefs.readerTextOnly = $0 }
+                ))
+                Toggle("Dark Pages", isOn: Binding(
+                    get: { browser.prefs.darkPages },
+                    set: { browser.prefs.darkPages = $0 }
+                ))
+                .shortcut("view.darkPages")
                 Button("Float Video") { browser.toggleFloat() }
                     .shortcut("view.float")
                 // The AI add-on's, only once it is on (Settings › AI).
@@ -1332,6 +1341,8 @@ struct ContentView: View {
             browser.copyAddress()
         case "d" where !shifted:
             browser.duplicate()
+        case "d" where shifted:
+            browser.prefs.darkPages.toggle()
         case "n" where shifted:
             browser.newShyTab()
         case "y" where !shifted:

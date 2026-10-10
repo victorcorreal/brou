@@ -348,7 +348,10 @@ final class Tab: ObservableObject, Identifiable {
         }
         web.evaluateJavaScript(Reader.script) { [weak self] answer, _ in
             let worked = (answer as? String) == "read"
-            if worked { self?.reader = true }
+            if worked {
+                self?.reader = true
+                self?.afterReading()
+            }
             done(worked)
         }
     }
@@ -745,6 +748,12 @@ final class Tab: ObservableObject, Identifiable {
         if AutoScroll.on {
             controller.addUserScript(
                 WKUserScript(source: AutoScroll.script, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: Web.world)
+            )
+        }
+        // Main frame only: its filter turns the frames over with it (see DarkPages.swift).
+        if DarkPages.on {
+            controller.addUserScript(
+                WKUserScript(source: DarkPages.script, injectionTime: .atDocumentStart, forMainFrameOnly: true, in: Web.world)
             )
         }
         // Every frame: a swipe over an embedded map is the map's, and only the
