@@ -1797,6 +1797,20 @@ final class Browser: NSObject, ObservableObject {
             }
             .store(in: &bag)
 
+        // The same for Dark Pages (see DarkPages.swift). The publisher speaks
+        // before the setting has changed, so the flag arm() reads is set here.
+        prefs.$darkPages
+            .dropFirst()
+            .sink { [weak self] on in
+                guard let self else { return }
+                DarkPages.on = on
+                for tab in tabs + parkedTabs {
+                    tab.arm(hiding: curtain.css(on: curtain.host(of: tab.address)))
+                    tab.built?.evaluateInSearch(on ? DarkPages.script : DarkPages.off)
+                }
+            }
+            .store(in: &bag)
+
         // Every tab's next page, and the page each is showing now.
         prefs.$showsLinks
             .dropFirst()

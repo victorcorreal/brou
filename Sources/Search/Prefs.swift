@@ -213,6 +213,22 @@ final class Preferences: ObservableObject {
             AutoScroll.on = autoScroll
         }
     }
+    /// Every page dark, whatever its own colours (see DarkPages.swift).
+    /// Off unless asked for.
+    @Published var darkPages: Bool {
+        didSet {
+            store.set(darkPages, forKey: "pages.dark")
+            DarkPages.on = darkPages
+        }
+    }
+    /// Reading mode keeps the words and nothing else (see ReaderText.swift).
+    /// On unless turned off.
+    @Published var readerTextOnly: Bool {
+        didSet {
+            store.set(readerTextOnly, forKey: "reader.textOnly")
+            Reader.textOnly = readerTextOnly
+        }
+    }
     /// Pages draw at 120 frames a second on a screen that can (see FrameRate.swift).
     /// Off unless asked for.
     @Published var fastPages: Bool {
@@ -460,6 +476,12 @@ final class Preferences: ObservableObject {
         let fast = store.bool(forKey: "pages.120")
         fastPages = fast
         FrameRate.fast = fast
+        let darkens = store.bool(forKey: "pages.dark")
+        darkPages = darkens
+        DarkPages.on = darkens
+        let textOnly = store.object(forKey: "reader.textOnly") as? Bool ?? true
+        readerTextOnly = textOnly
+        Reader.textOnly = textOnly
         // Left behind by the Web Inspector's switch, from before it was
         // always there.
         store.removeObject(forKey: "inspector")
