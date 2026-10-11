@@ -92,7 +92,7 @@ enum Vault {
         ]
         extra.forEach { query[$0] = $1 }
         var out: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &out)
+        let status = VaultCloud.copyMatching(query as CFDictionary, &out)
         guard status == errSecSuccess, let rows = out as? [[String: Any]] else {
             // Nothing kept reads as "not found"; anything else is worth a
             // line in the log, because the panel will only say "nothing".
@@ -105,7 +105,7 @@ enum Vault {
     /// One item's secret, by the two things that name it.
     private static func secret(host: String, user: String) -> String? {
         var out: CFTypeRef?
-        let status = SecItemCopyMatching([
+        let status = VaultCloud.copyMatching([
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrLabel as String: label,
             kSecAttrServer as String: host,
@@ -182,13 +182,13 @@ enum Vault {
         ]
         if let used { fields[kSecAttrComment as String] = String(used.timeIntervalSince1970) }
 
-        let status = SecItemUpdate(identity as CFDictionary, fields as CFDictionary)
+        let status = VaultCloud.update(identity as CFDictionary, fields as CFDictionary)
         if status == errSecSuccess { return true }
         guard status == errSecItemNotFound else { return false }
 
         var fresh = identity.merging(fields) { _, new in new }
         fresh[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
-        return SecItemAdd(fresh as CFDictionary, nil) == errSecSuccess
+        return VaultCloud.add(fresh as CFDictionary, nil) == errSecSuccess
     }
 
     /// It was just used to sign in. Lists put it first from now on.
@@ -197,7 +197,7 @@ enum Vault {
     }
 
     static func forget(host: String, user: String) {
-        SecItemDelete([
+        VaultCloud.delete([
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrServer as String: host,
             kSecAttrAccount as String: user,
