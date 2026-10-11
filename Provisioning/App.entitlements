@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Victor's build: Search.entitlements plus what the profile in this folder
+     allows. build.sh signs with this file whenever that profile is present. -->
+<plist version="1.0">
+<dict>
+  <!-- As in Search.entitlements. -->
+  <key>com.apple.security.device.camera</key><true/>
+  <key>com.apple.security.device.audio-input</key><true/>
+  <key>com.apple.security.personal-information.location</key><true/>
+
+  <!-- Who the app is, as the profile says. -->
+  <key>com.apple.application-identifier</key>
+  <string>E653G759EN.cat.correal.search</string>
+  <key>com.apple.developer.team-identifier</key>
+  <string>E653G759EN</string>
+
+  <!-- iCloud: bookmarks and the rest through CloudKit. The Development
+       environment, as the iPhone app: Production would need the schema
+       deployed from the CloudKit Console first. -->
+  <key>com.apple.developer.icloud-container-identifiers</key>
+  <array><string>iCloud.cat.correal.search</string></array>
+  <key>com.apple.developer.icloud-services</key>
+  <array><string>CloudKit</string></array>
+  <key>com.apple.developer.icloud-container-environment</key>
+  <string>Development</string>
+
+  <!-- Passwords in iCloud Keychain, shared with the iPhone app. -->
+  <key>keychain-access-groups</key>
+  <array><string>E653G759EN.cat.correal.search</string></array>
+</dict>
+</plist>

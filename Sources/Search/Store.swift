@@ -83,7 +83,8 @@ enum Store {
     /// differ from stores made by identifier in how long extension workers
     /// are let live.
     static var ownContainer: Bool {
-        (Bundle.main.bundleIdentifier ?? "") != "com.officecommun.search"
+        // Victor's build is cat.correal.search: its tests must never share its stores.
+        (Bundle.main.bundleIdentifier ?? "") != "cat.correal.search"
     }
 
     /// The fixed identifiers of a test world's WebKit stores: 1 for websites,

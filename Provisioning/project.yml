@@ -1,0 +1,23 @@
+# Victor's build only. Xcode registers the App ID, the iCloud container and
+# the keychain group with the account signed in to Xcode, and makes the macOS
+# provisioning profile build.sh embeds. See Provisioning/README.md.
+name: SearchProvisioning
+options:
+  deploymentTarget:
+    macOS: "14.0"
+targets:
+  SearchProvisioning:
+    type: application
+    platform: macOS
+    sources: [main.swift]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cat.correal.search
+        PRODUCT_NAME: Search
+        DEVELOPMENT_TEAM: E653G759EN
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: Search.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: YES
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"

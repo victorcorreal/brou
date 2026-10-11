@@ -54,6 +54,9 @@ case "$ARCH" in
 esac
 APP="$OUT/Search.app"
 NAME="Search"
+# Victor's build has an identity of its own, so it can use iCloud (see
+# Provisioning/README.md). Office Commun's is com.officecommun.search.
+BUNDLE_ID="cat.correal.search"
 VERSION="$(tr -d '[:space:]' < VERSION)"
 # A build number that only ever goes up, so the updater can tell newer from
 # older without parsing version strings.
@@ -134,7 +137,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleName</key><string>$NAME</string>
   <key>CFBundleDisplayName</key><string>$NAME</string>
   <key>CFBundleExecutable</key><string>$NAME</string>
-  <key>CFBundleIdentifier</key><string>com.officecommun.search</string>
+  <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD</string>
@@ -209,6 +212,13 @@ if [ -f "Search.provisionprofile" ]; then
   cp "Search.provisionprofile" "$APP/Contents/embedded.provisionprofile"
   ENTITLEMENTS="Search.passkeys.entitlements"
   echo "passkeys: profile embedded"
+fi
+# Victor's build: the profile Provisioning/refresh.sh fetched, and the
+# entitlements it allows — iCloud, and the keychain group the iPhone app shares.
+if [ -f "Provisioning/Search.provisionprofile" ]; then
+  cp "Provisioning/Search.provisionprofile" "$APP/Contents/embedded.provisionprofile"
+  ENTITLEMENTS="Provisioning/App.entitlements"
+  echo "icloud: profile embedded"
 fi
 if [ -n "$IDENTITY" ]; then
   codesign --force --deep --timestamp --options runtime \
