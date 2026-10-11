@@ -50,7 +50,11 @@ final class Bookmarks: ObservableObject {
     /// button, which fills in on a page that is kept.
     private var kept: Set<String> = []
 
-    init() { load() }
+    init() {
+        load()
+        // Victor's build: the same list in iCloud (see CloudSync.swift).
+        CloudSync.start(self)
+    }
 
     var isEmpty: Bool { roots.isEmpty }
 
@@ -562,6 +566,14 @@ final class Bookmarks: ObservableObject {
         let snapshot = roots
         // One after another, the newest last (see Disk).
         Disk.write(Bookmarks.file) { try? JSONEncoder().encode(snapshot) }
+        CloudSync.shared?.changed()
+    }
+
+    /// The whole list as iCloud has it (see CloudSync.swift).
+    func adopt(_ nodes: [Bookmark]) {
+        guard nodes != roots else { return }
+        roots = nodes
+        save()
     }
 }
 
