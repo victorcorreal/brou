@@ -1507,6 +1507,31 @@ final class Bench {
             }
             answer(["shown": true, "rows": rows, "spot": [list.spot.minX, list.spot.minY, list.spot.width, list.spot.height]])
 
+        case "passwords":
+            // The passwords panel's list, each row as it is drawn, with its
+            // secret read the way Show reads it. With "plant", first a second
+            // item beside what is kept for that site and account, as the
+            // iPhone app makes one; with "forget", first the panel's Remove
+            // on the row with that id. Only on a SEARCH_PROBE run, where
+            // every item is the test world's own.
+            guard Store.testing else { answer(["error": "passwords only works on a --test run"]); return }
+            if let plant = request["plant"] as? [String: Any] {
+                guard let host = plant["host"] as? String, let user = plant["user"] as? String,
+                      let password = plant["password"] as? String,
+                      Vault.plant(host: host, user: user, password: password, clear: plant["clear"] as? Bool ?? false)
+                else { answer(["error": "plant needs host, user and password, and the keychain refused it"]); return }
+            }
+            browser.relist()
+            if let id = request["forget"] as? String {
+                guard let row = browser.saved.first(where: { $0.id == id }) else { answer(["error": "no row \(id)"]); return }
+                browser.forget(row)
+            }
+            answer(["rows": browser.shownSites.flatMap(\.logins).map { row -> [String: Any] in
+                ["id": row.id, "host": row.host, "user": row.user, "clear": row.clear,
+                 "used": row.used?.timeIntervalSince1970 ?? 0, "saved": row.saved?.timeIntervalSince1970 ?? 0,
+                 "old": row.ref?.old ?? false, "password": Vault.secret(of: row) ?? ""]
+            }])
+
         case "fill":
             // What the window spends on the page scrolling: the page's report
             // of where it is, STEPS times, 8 ms apart, each timed until the
@@ -2433,7 +2458,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "tabs", "open", "go", "close", "wait", "sleep", "select", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "resize", "hit", "film", "float", "window", "pages", "picture", "place", "group", "tospace", "field", "bookmark", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "accounts", "find", "answer", "visible", "ai", "notifications",
+                "tabs", "open", "go", "close", "wait", "sleep", "select", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "resize", "hit", "film", "float", "window", "pages", "picture", "place", "group", "tospace", "field", "bookmark", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "accounts", "passwords", "find", "answer", "visible", "ai", "notifications",
             ]])
         }
     }

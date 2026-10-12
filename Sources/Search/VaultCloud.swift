@@ -14,11 +14,25 @@ import Security
 // filled in. The first time one is read — macOS may ask, once — a copy goes
 // to the shared group, which is read first from then on. The old one stays
 // where it is: taking it away could ask a second time, and it is never
-// listed twice. Without the group — a build without Victor's profile, or a test run
-// not given SEARCH_SYNC_KEYCHAIN — every call goes to the keychain as before.
+// listed twice. It goes only when you remove it, or the copy that hides it
+// (see `delete`). Without the group — a build without Victor's profile, or a
+// test run not given SEARCH_SYNC_KEYCHAIN — every call goes to the keychain
+// as before.
+//
+// Each item listed comes with the keychain's reference to it, and Vault
+// reads, notes and removes an item by that reference: two items can share a
+// site and an account. A row from the login keychain is marked `old`, and a
+// query by its reference carries the mark back, so each reference goes only
+// to the keychain it came from. The login keychain goes by a reference alone
+// and ignores the rest of the query; handed one from the shared group, it
+// could name a different item.
 
 enum VaultCloud {
     static let group = "E653G759EN.cat.correal.search"
+
+    /// The mark on a row from the login keychain, and on a query by that
+    /// row's reference. Never handed to the keychain itself.
+    static let old = "search.old"
 
     /// Whether this build may use the shared group. A test run that may also
     /// starts by clearing its own items when given SEARCH_SYNC_KEYCHAIN_DROP.
@@ -60,7 +74,9 @@ enum VaultCloud {
     // MARK: - what Vault calls
 
     static func copyMatching(_ query: CFDictionary, _ result: UnsafeMutablePointer<CFTypeRef?>?) -> OSStatus {
-        guard available, let asked = query as? [String: Any] else { return SecItemCopyMatching(query, result) }
+        guard available, var asked = query as? [String: Any] else { return SecItemCopyMatching(query, result) }
+        let isOld = asked.removeValue(forKey: old) != nil
+        if asked[kSecValuePersistentRef as String] != nil { return copy(one: asked, isOld: isOld, result) }
         var mine: CFTypeRef?
         let status = SecItemCopyMatching(shared(asked) as CFDictionary, &mine)
         diary("copy \(asked[kSecAttrAccount as String] ?? "*")@\(asked[kSecAttrServer as String] ?? "*") data=\(asked[kSecReturnData as String] != nil) -> \(status) \(rows(mine).count) rows")
@@ -71,29 +87,82 @@ enum VaultCloud {
                 result?.pointee = mine
                 return status
             }
-            var old: CFTypeRef?
-            let was = SecItemCopyMatching(before(asked) as CFDictionary, &old)
+            var found: CFTypeRef?
+            let was = SecItemCopyMatching(before(asked) as CFDictionary, &found)
             if was == errSecSuccess {
-                result?.pointee = old
-                move(asked, secret: old)
+                result?.pointee = found
+                move(asked, secret: found)
             }
             return was
         }
 
-        // A list: the shared group's, then anything from before not also there.
-        var old: CFTypeRef?
-        let was = SecItemCopyMatching(before(asked) as CFDictionary, &old)
+        // A list: the shared group's, then anything from before not also
+        // there, marked as such.
+        var found: CFTypeRef?
+        let was = SecItemCopyMatching(before(asked) as CFDictionary, &found)
         let ours = status == errSecSuccess ? rows(mine) : []
         let have = Set(ours.map(key))
-        let all = ours + (was == errSecSuccess ? rows(old) : []).filter { !have.contains(key($0)) }
+        let theirs = (was == errSecSuccess ? rows(found) : []).filter { !have.contains(key($0)) }
+        let all = ours + theirs.map { row -> [String: Any] in
+            var marked = row
+            marked[old] = true
+            return marked
+        }
         guard !all.isEmpty else { return errSecItemNotFound }
         result?.pointee = all as CFArray
         return errSecSuccess
     }
 
+    /// One item, by its reference, in the keychain it is in. An old one's
+    /// secret, once read, moves like one asked for by name, and the item
+    /// handed back carries the copy's reference instead of its own — or,
+    /// if no copy could be made, its own with the mark.
+    private static func copy(one asked: [String: Any], isOld: Bool, _ result: UnsafeMutablePointer<CFTypeRef?>?) -> OSStatus {
+        guard isOld else {
+            // The reference and what to hand back, and nothing to narrow it:
+            // the shared group answers errSecParam to a read by reference
+            // with a label, a group or a server beside it (an update or a
+            // delete takes them). The reference came from a list of ours.
+            let kept = [kSecClass, kSecValuePersistentRef, kSecReturnData, kSecReturnAttributes,
+                        kSecReturnPersistentRef, kSecMatchLimit].map { $0 as String }
+            var one = asked.filter { kept.contains($0.key) }
+            one[kSecUseDataProtectionKeychain as String] = true
+            one[kSecAttrSynchronizable as String] = kSecAttrSynchronizableAny
+            let status = SecItemCopyMatching(one as CFDictionary, result)
+            diary("copy ref data=\(asked[kSecReturnData as String] != nil) -> \(status)")
+            return status
+        }
+        guard (asked[kSecReturnData as String] as? Bool) == true else {
+            return SecItemCopyMatching(before(asked) as CFDictionary, result)
+        }
+        // Its attributes with it: what the copy is made of.
+        var look = asked
+        look[kSecReturnAttributes as String] = true
+        look[kSecReturnPersistentRef as String] = true
+        look[kSecMatchLimit as String] = kSecMatchLimitOne
+        var found: CFTypeRef?
+        let was = SecItemCopyMatching(before(look) as CFDictionary, &found)
+        diary("copy old ref -> \(was)")
+        guard was == errSecSuccess, var item = found as? [String: Any],
+              let data = item[kSecValueData as String] as? Data
+        else { return was }
+        if let copy = move(item, data: data) {
+            item[kSecValuePersistentRef as String] = copy
+        } else {
+            item[old] = true
+        }
+        result?.pointee = item as CFDictionary
+        return was
+    }
+
+    /// Only the shared group is written to: the login keychain's items are
+    /// read, copied across, and left (see `delete` for when one goes).
     static func update(_ query: CFDictionary, _ fields: CFDictionary) -> OSStatus {
-        guard available, let asked = query as? [String: Any] else { return SecItemUpdate(query, fields) }
-        return SecItemUpdate(shared(asked) as CFDictionary, fields)
+        guard available, var asked = query as? [String: Any] else { return SecItemUpdate(query, fields) }
+        guard asked.removeValue(forKey: old) == nil else { return errSecItemNotFound }
+        let status = SecItemUpdate(shared(asked) as CFDictionary, fields)
+        if asked[kSecValuePersistentRef as String] != nil { diary("update ref -> \(status)") }
+        return status
     }
 
     static func add(_ attributes: CFDictionary, _ result: UnsafeMutablePointer<CFTypeRef?>?) -> OSStatus {
@@ -103,45 +172,122 @@ enum VaultCloud {
         return status
     }
 
+    /// Called only when you remove a password. By its reference, that one
+    /// item goes, from the keychain it is in, and with it whatever would
+    /// take its place in the list as though the removal hadn't happened:
+    ///
+    /// - for an item in the shared group that was the last one there for its
+    ///   site and account, the old items under them in the login keychain,
+    ///   which the list had hidden behind it;
+    /// - for an old item, the copy a read of it already made in the shared
+    ///   group (same site, account and protocol).
+    ///
+    /// Without a reference, everything of ours under that name goes, here
+    /// and from before, as it always did.
     @discardableResult
     static func delete(_ query: CFDictionary) -> OSStatus {
-        guard available, let asked = query as? [String: Any] else { return SecItemDelete(query) }
-        let mine = SecItemDelete(shared(asked) as CFDictionary)
-        let was = SecItemDelete(before(asked) as CFDictionary)
-        return mine == errSecSuccess || was == errSecSuccess ? errSecSuccess : mine
+        guard available, var asked = query as? [String: Any] else { return SecItemDelete(query) }
+        let isOld = asked.removeValue(forKey: old) != nil
+        guard let ref = asked.removeValue(forKey: kSecValuePersistentRef as String) else {
+            let mine = SecItemDelete(shared(asked) as CFDictionary)
+            let was = SecItemDelete(before(asked) as CFDictionary)
+            return mine == errSecSuccess || was == errSecSuccess ? errSecSuccess : mine
+        }
+        // What is left of the query names the site and account.
+        let name = asked
+
+        if isOld {
+            // Its own protocol, read before it goes: the copy has the same.
+            var look: [String: Any] = [
+                kSecClass as String: kSecClassInternetPassword,
+                kSecValuePersistentRef as String: ref,
+                kSecReturnAttributes as String: true,
+                kSecMatchLimit as String: kSecMatchLimitOne,
+            ]
+            var found: CFTypeRef?
+            SecItemCopyMatching(before(look) as CFDictionary, &found)
+            let said = found as? [String: Any] ?? [:]
+            look = name
+            look[kSecValuePersistentRef as String] = ref
+            let was = SecItemDelete(before(look) as CFDictionary)
+            diary("delete old ref -> \(was)")
+            if was == errSecSuccess, let server = said[kSecAttrServer as String], let account = said[kSecAttrAccount as String] {
+                var copy = name
+                copy[kSecAttrServer as String] = server
+                copy[kSecAttrAccount as String] = account
+                copy[kSecAttrProtocol as String] = said[kSecAttrProtocol as String] ?? kSecAttrProtocolHTTPS
+                SecItemDelete(shared(copy) as CFDictionary)
+            }
+            return was
+        }
+
+        var one = name
+        one[kSecValuePersistentRef as String] = ref
+        let mine = SecItemDelete(shared(one) as CFDictionary)
+        diary("delete ref -> \(mine)")
+        guard mine == errSecSuccess, name[kSecAttrServer as String] != nil, name[kSecAttrAccount as String] != nil else { return mine }
+        var left = name
+        left[kSecReturnAttributes as String] = true
+        left[kSecMatchLimit as String] = kSecMatchLimitOne
+        var found: CFTypeRef?
+        if SecItemCopyMatching(shared(left) as CFDictionary, &found) == errSecItemNotFound {
+            let was = SecItemDelete(before(name) as CFDictionary)
+            diary("delete old behind -> \(was)")
+        }
+        return mine
     }
 
     // MARK: - moving across
 
-    /// An item from before, just read: copied into the shared group with what
-    /// it said (its protocol, when it was last used).
+    /// An item from before, read by name: copied into the shared group with
+    /// what it said (its protocol, when it was last used).
     private static func move(_ asked: [String: Any], secret: CFTypeRef?) {
         guard let data = secret as? Data,
               let server = asked[kSecAttrServer as String] as? String,
               let account = asked[kSecAttrAccount as String] as? String,
               let label = asked[kSecAttrLabel as String] as? String
         else { return }
-        let name: [String: Any] = [
+        var found: CFTypeRef?
+        let look: [String: Any] = [
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrServer as String: server,
             kSecAttrAccount as String: account,
             kSecAttrLabel as String: label,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
         ]
-        var found: CFTypeRef?
-        var look = name
-        look[kSecReturnAttributes as String] = true
-        look[kSecMatchLimit as String] = kSecMatchLimitOne
         SecItemCopyMatching(before(look) as CFDictionary, &found)
-        let said = found as? [String: Any] ?? [:]
+        var said = found as? [String: Any] ?? [:]
+        said[kSecAttrServer as String] = server
+        said[kSecAttrAccount as String] = account
+        said[kSecAttrLabel as String] = label
+        move(said, data: data)
+    }
 
-        var item = name
-        item[kSecValueData as String] = data
-        item[kSecAttrAuthenticationType as String] = kSecAttrAuthenticationTypeHTMLForm
-        item[kSecAttrProtocol as String] = said[kSecAttrProtocol as String] ?? kSecAttrProtocolHTTPS
+    /// An item from before, with its attributes and secret: copied into the
+    /// shared group with what it said. The copy's reference, if it was made.
+    @discardableResult
+    private static func move(_ said: [String: Any], data: Data) -> Data? {
+        guard let server = said[kSecAttrServer as String] as? String,
+              let account = said[kSecAttrAccount as String] as? String,
+              let label = said[kSecAttrLabel as String] as? String
+        else { return nil }
+        var item: [String: Any] = [
+            kSecClass as String: kSecClassInternetPassword,
+            kSecAttrServer as String: server,
+            kSecAttrAccount as String: account,
+            kSecAttrLabel as String: label,
+            kSecValueData as String: data,
+            kSecAttrAuthenticationType as String: kSecAttrAuthenticationTypeHTMLForm,
+            kSecAttrProtocol as String: said[kSecAttrProtocol as String] ?? kSecAttrProtocolHTTPS,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked,
+            kSecReturnPersistentRef as String: true,
+        ]
         if let comment = said[kSecAttrComment as String] { item[kSecAttrComment as String] = comment }
-        item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
-        let added = SecItemAdd(shared(item, adding: true) as CFDictionary, nil)
+        var made: CFTypeRef?
+        let added = SecItemAdd(shared(item, adding: true) as CFDictionary, &made)
         diary("move \(account) -> \(added)")
+        return added == errSecSuccess ? made as? Data : nil
     }
 
     /// A test run's diary of keychain calls (no secrets), for Tests/cloud_keychain.py.
