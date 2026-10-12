@@ -5,8 +5,9 @@ import SwiftUI
 /// page; one line per account, the name in ink and the site under it in
 /// grey; a click puts both into the form. The Mac's passkeys for a page
 /// waiting for one come first, as in Safari; a click on one brings up the
-/// Mac's sheet for it. It follows the box when the page scrolls, and goes
-/// when the caret does.
+/// Mac's sheet for it. Its foot opens the passwords panel with this site
+/// alone in it. It follows the box when the page scrolls, and goes when the
+/// caret does.
 struct AccountList: View {
     @ObservedObject var browser: Browser
     let asked: Browser.Suggesting
@@ -21,17 +22,13 @@ struct AccountList: View {
                 Row(mark: .letter(login.user.first.map { String($0).uppercased() } ?? "•"),
                     name: login.user.isEmpty ? "No name" : login.user, detail: login.host) { browser.choose(login) }
             }
-            HStack(spacing: 6) {
-                Image(systemName: "key")
-                    .font(.system(size: 9, weight: .medium))
-                Text(asked.logins.isEmpty ? "Passkeys on this Mac" : "From your keychain")
-                    .font(.system(size: 10.5))
-                Spacer(minLength: 0)
+            if asked.logins.isEmpty {
+                Foot(text: "Passkeys on this Mac")
+            } else {
+                // Where this site's passwords are seen and removed: the
+                // panel, with this site alone in it.
+                Foot(text: "Manage passwords for this site", act: browser.manageChoice)
             }
-            .foregroundStyle(Palette.faint)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(Palette.wash.opacity(0.5))
         }
         .frame(width: max(240, min(360, asked.spot.width)), alignment: .leading)
         .background(Palette.ground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -47,6 +44,48 @@ struct AccountList: View {
     }
 
     private enum Mark { case letter(String), symbol(String) }
+
+    /// The grey line under the accounts. When it leads somewhere it lights
+    /// up under the pointer, as the rows above it do.
+    private struct Foot: View {
+        let text: String
+        var act: (() -> Void)?
+        @State private var hovering = false
+
+        var body: some View {
+            if let act {
+                Button(action: act) { line }
+                    .buttonStyle(.plain)
+                    .onHover { hovering = $0 }
+                    .animation(Motion.quick, value: hovering)
+            } else {
+                line
+            }
+        }
+
+        private var line: some View {
+            HStack(spacing: 6) {
+                Image(systemName: "key")
+                    .font(.system(size: 9, weight: .medium))
+                Text(text)
+                    .font(.system(size: 10.5))
+                Spacer(minLength: 0)
+                if act != nil {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .semibold))
+                }
+            }
+            // A line that leads somewhere is grey enough to read; one that
+            // only says where the accounts come from stays faint.
+            .foregroundStyle(hovering ? Palette.ink : (act == nil ? Palette.faint : Palette.muted))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            // The full wash, not the rows' hover: on this grey half-wash
+            // the hover grey would not show.
+            .background(hovering ? Palette.wash : Palette.wash.opacity(0.5))
+            .contentShape(Rectangle())
+        }
+    }
 
     private struct Row: View {
         let mark: Mark

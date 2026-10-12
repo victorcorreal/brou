@@ -787,22 +787,43 @@ final class Browser: NSObject, ObservableObject {
 
     func dropChoice() { suggesting = nil }
 
+    /// The list's foot: the passwords panel, with only the page's site in
+    /// it — as the key does on the iPhone. Held back for the list's first
+    /// half second, as a pick is.
+    func manageChoice() {
+        lowering?.cancel()
+        guard let list = suggesting, Date().timeIntervalSince(list.shown) > 0.5 else { return }
+        suggesting = nil
+        hunting = ""
+        passwordSite = Vault.registrable(list.host)
+        managing = true
+    }
+
     // The list of what is kept.
 
-    @Published var managing = false { didSet { if managing { relist() } } }
+    /// Closed, it forgets the site it was showing: the menu and ⌥⌘L open
+    /// every password.
+    @Published var managing = false { didSet { if managing { relist() } else { passwordSite = nil } } }
     /// The list, without secrets: see `Kept` and `Vault.all()`.
     @Published private(set) var saved: [Kept] = []
     @Published var hunting = ""
+    /// The one site the panel shows, by registrable domain: example.com
+    /// takes in www.example.com and accounts.example.com. Nil for all of
+    /// them. Apart from `hunting`, which also matches the account's name:
+    /// "example" there finds every site where you are someone@example.com.
+    @Published var passwordSite: String?
 
     struct SiteRow {
         let host: String
         let logins: [Kept]
     }
 
-    /// Grouped by site, filtered by what has been typed.
+    /// Grouped by site, kept to the panel's site if it has one, filtered by
+    /// what has been typed.
     var shownSites: [SiteRow] {
         let needle = hunting.trimmingCharacters(in: .whitespaces).lowercased()
-        let rows = needle.isEmpty ? saved : saved.filter {
+        let pool = passwordSite.map { site in saved.filter { Vault.registrable($0.host) == site } } ?? saved
+        let rows = needle.isEmpty ? pool : pool.filter {
             $0.host.contains(needle) || $0.user.lowercased().contains(needle)
         }
         let groups = Dictionary(grouping: rows, by: \.host)
