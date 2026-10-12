@@ -2,19 +2,26 @@ import SwiftUI
 
 /// Every password kept, by site. The same white-and-hairline panel as the
 /// rest, and the same rule: a password is never shown until you have proved
-/// you are you, and never for longer than it takes to read it.
+/// you are you, and never for longer than it takes to read it. Opened from
+/// the accounts under a sign-in box, it holds that page's site alone until
+/// its chip is closed.
 struct PasswordsPanel: View {
     @ObservedObject var browser: Browser
 
     @FocusState private var hunting: Bool
-    @State private var open: String?
+    @State private var open: Set<String> = []
     @State private var adding = false
 
     var body: some View {
         Plate("Passwords", width: 620, close: { browser.managing = false }) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 10) {
-                    Hunt(text: $browser.hunting, prompt: "Search sites and accounts", focus: $hunting)
+                    Hunt(text: $browser.hunting, prompt: browser.passwordSite.map { "Search \($0)" } ?? "Search sites and accounts",
+                         focus: $hunting)
+                    if let site = browser.passwordSite {
+                        Only(site: site) { browser.passwordSite = nil }
+                            .transition(.opacity)
+                    }
                     Pill(adding ? "Cancel" : "Add", filled: !adding) { adding.toggle() }
                 }
 
@@ -24,11 +31,7 @@ struct PasswordsPanel: View {
                 }
 
                 if browser.shownSites.isEmpty {
-                    Card {
-                        Nothing(browser.saved.isEmpty
-                                ? "Nothing kept yet. Sign in somewhere and say yes, or bring yours in below."
-                                : "Nothing matches.")
-                    }
+                    Card { Nothing(empty) }
                 } else {
                     ScrollView(showsIndicators: false) {
                         Card {
@@ -37,8 +40,10 @@ struct PasswordsPanel: View {
                                 Site(
                                     host: site.host,
                                     logins: site.logins,
-                                    open: open == site.host,
-                                    toggle: { open = open == site.host ? nil : site.host },
+                                    open: open.contains(site.host),
+                                    // One open at a time, as before; the
+                                    // two a site's chip opened close singly.
+                                    toggle: { open = open.contains(site.host) ? open.subtracting([site.host]) : [site.host] },
                                     copy: { browser.copy($0) },
                                     forget: { browser.forget($0) }
                                 )
@@ -62,7 +67,7 @@ struct PasswordsPanel: View {
                     }
                     Pill("File…") { browser.importFile() }
                     Spacer(minLength: 0)
-                    Text(browser.saved.count == 1 ? "1 password" : "\(browser.saved.count) passwords")
+                    Text(count)
                         .font(.system(size: 12))
                         .foregroundStyle(Palette.muted)
                 }
@@ -74,7 +79,71 @@ struct PasswordsPanel: View {
         }
         .animation(Motion.settle, value: adding)
         .animation(Motion.settle, value: open)
-        .onAppear { hunting = true }
+        .animation(Motion.settle, value: browser.passwordSite)
+        .onAppear {
+            hunting = true
+            unfold()
+        }
+        .onChange(of: browser.passwordSite) { _, _ in unfold() }
+    }
+
+    /// With one site asked for, its accounts are what you came to see: when
+    /// it is kept under one or two names (guidedoc.tv, dev.guidedoc.tv),
+    /// those open already.
+    private func unfold() {
+        guard browser.passwordSite != nil else { return }
+        let hosts = browser.shownSites.map(\.host)
+        if hosts.count <= 2 { open = Set(hosts) }
+    }
+
+    private var empty: String {
+        if browser.saved.isEmpty { return "Nothing kept yet. Sign in somewhere and say yes, or bring yours in below." }
+        if let site = browser.passwordSite, browser.hunting.trimmingCharacters(in: .whitespaces).isEmpty {
+            return "Nothing kept for \(site)."
+        }
+        return "Nothing matches."
+    }
+
+    /// How many are kept; with a site chosen, how many of them are its.
+    private var count: String {
+        let all = browser.saved.count
+        guard browser.passwordSite != nil else { return all == 1 ? "1 password" : "\(all) passwords" }
+        return "\(browser.shownSites.reduce(0) { $0 + $1.logins.count }) of \(all) passwords"
+    }
+
+    /// The one site the list is kept to, beside the field. Its cross, or a
+    /// click anywhere on it, brings back every site.
+    private struct Only: View {
+        let site: String
+        let clear: () -> Void
+
+        @State private var hovering = false
+
+        var body: some View {
+            Button(action: clear) {
+                HStack(spacing: 6) {
+                    Text(site)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Palette.ink)
+                        .lineLimit(1)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(hovering ? Palette.ink : Palette.muted)
+                }
+                .padding(.leading, 11)
+                .padding(.trailing, 9)
+                .padding(.vertical, 6)
+                .background(hovering ? Palette.hover : Palette.wash, in: Capsule())
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("Show every site")
+            .onHover { hovering = $0 }
+            .animation(Motion.quick, value: hovering)
+            // Its whole name: a registrable domain is short, and the field
+            // beside it gives way.
+            .fixedSize()
+        }
     }
 
     /// A site, and under it its accounts once opened.

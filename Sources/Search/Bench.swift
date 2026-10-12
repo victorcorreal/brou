@@ -629,6 +629,8 @@ final class Bench {
                 "settings": browser.tuning,
                 "welcome": browser.welcoming,
                 "passwords": browser.managing,
+                // The one site the passwords panel is kept to, "" for all.
+                "passwordSite": browser.passwordSite ?? "",
                 // A question hanging from the window (Ask), still unanswered.
                 "sheet": browser.window?.attachedSheet != nil,
                 "history": browser.recalling,
@@ -1497,7 +1499,8 @@ final class Bench {
         case "accounts":
             // The list under the sign-in box the caret is in — passkeys, then
             // passwords — and, with "pick", a click on its row by number,
-            // counted from 0. Only on a SEARCH_PROBE run: it would sign in.
+            // counted from 0; with "manage", a click on its foot. Only on a
+            // SEARCH_PROBE run: it would sign in.
             guard Store.testing else { answer(["error": "accounts only works on a --test run"]); return }
             guard let list = browser.suggesting else { answer(["shown": false]); return }
             let rows = list.passkeys.map { ["passkey": $0.name] } + list.logins.map { ["login": $0.user] }
@@ -1505,6 +1508,7 @@ final class Bench {
                 guard rows.indices.contains(pick) else { answer(["error": "no row \(pick)"]); return }
                 if pick < list.passkeys.count { browser.choose(list.passkeys[pick]) } else { browser.choose(list.logins[pick - list.passkeys.count]) }
             }
+            if request["manage"] as? Bool == true { browser.manageChoice() }
             answer(["shown": true, "rows": rows, "spot": [list.spot.minX, list.spot.minY, list.spot.width, list.spot.height]])
 
         case "passwords":
@@ -1512,8 +1516,9 @@ final class Bench {
             // secret read the way Show reads it. With "plant", first a second
             // item beside what is kept for that site and account, as the
             // iPhone app makes one; with "forget", first the panel's Remove
-            // on the row with that id. Only on a SEARCH_PROBE run, where
-            // every item is the test world's own.
+            // on the row with that id; with "site" and "hunt", the panel's
+            // site ("" for all) and what is typed in its field. Only on a
+            // SEARCH_PROBE run, where every item is the test world's own.
             guard Store.testing else { answer(["error": "passwords only works on a --test run"]); return }
             if let plant = request["plant"] as? [String: Any] {
                 guard let host = plant["host"] as? String, let user = plant["user"] as? String,
@@ -1522,11 +1527,13 @@ final class Bench {
                 else { answer(["error": "plant needs host, user and password, and the keychain refused it"]); return }
             }
             browser.relist()
+            if let site = request["site"] as? String { browser.passwordSite = site.isEmpty ? nil : site }
+            if let hunt = request["hunt"] as? String { browser.hunting = hunt }
             if let id = request["forget"] as? String {
                 guard let row = browser.saved.first(where: { $0.id == id }) else { answer(["error": "no row \(id)"]); return }
                 browser.forget(row)
             }
-            answer(["rows": browser.shownSites.flatMap(\.logins).map { row -> [String: Any] in
+            answer(["site": browser.passwordSite ?? "", "rows": browser.shownSites.flatMap(\.logins).map { row -> [String: Any] in
                 ["id": row.id, "host": row.host, "user": row.user, "clear": row.clear,
                  "used": row.used?.timeIntervalSince1970 ?? 0, "saved": row.saved?.timeIntervalSince1970 ?? 0,
                  "old": row.ref?.old ?? false, "password": Vault.secret(of: row) ?? ""]
