@@ -21,8 +21,11 @@ struct Login: Identifiable, Equatable, Hashable {
     /// written down, is never handed to a page anyone on the way could have
     /// written.
     var clear = false
+    /// Which keychain item it is. Nil for one a page has just sent and that
+    /// isn't kept yet.
+    var ref: Vault.Ref?
 
-    var id: String { host + "\u{1}" + user }
+    var id: String { ref?.id ?? host + "\u{1}" + user }
 }
 
 /// One item as a list needs it: the site, the account, and when it was last
@@ -38,14 +41,36 @@ struct Kept: Identifiable, Equatable, Hashable {
     var used: Date?
     /// Kept from a page sent in the clear, over plain http. See `Login`.
     var clear = false
+    /// When it went into the keychain. With `used` and `clear`, what tells
+    /// two items with the same site and account apart in the list.
+    var saved: Date?
+    var ref: Vault.Ref?
 
-    var id: String { host + "\u{1}" + user }
+    var id: String { ref?.id ?? host + "\u{1}" + user }
 }
 
 enum Vault {
     /// What every item of ours is tagged with. A test run tags its own, so a
     /// password saved while trying something never sits among the real ones.
     private static let label = Store.world.map { "Search (\($0))" } ?? "Search"
+
+    /// The keychain's own name for one item, and which keychain it is in.
+    /// Two items can share a site and an account — one kept over http and
+    /// one over https, say, each saved on a different device before iCloud
+    /// brought the other across — and only this tells them apart. Reading a
+    /// secret, noting a use and taking one away go by it: by site and
+    /// account, taking one away took both, and noting a use wrote one
+    /// password over the other.
+    struct Ref: Hashable {
+        let data: Data
+        /// In the login keychain, where Search kept passwords before the
+        /// shared group (see VaultCloud). A reference from one keychain is
+        /// never handed to the other: the login keychain goes by the
+        /// reference alone, whatever else the query says.
+        var old = false
+
+        var id: String { (old ? "old:" : "") + data.base64EncodedString() }
+    }
 
     // MARK: - reading
 
@@ -78,8 +103,15 @@ enum Vault {
     /// is `secret(of:)`, a call of its own, and only when it is asked for.
     /// Read on demand and never kept in a property.
     static func all() -> [Kept] {
-        rows(where: [:]).compactMap(kept(from:))
-            .sorted { $0.host == $1.host ? $0.user < $1.user : $0.host < $1.host }
+        rows(where: [:]).compactMap(kept(from:)).sorted(by: listed)
+    }
+
+    /// By site, then account; the same account twice, the one used last
+    /// first.
+    static func listed(_ a: Kept, _ b: Kept) -> Bool {
+        if a.host != b.host { return a.host < b.host }
+        if a.user != b.user { return a.user < b.user }
+        return (a.used ?? .distantPast) > (b.used ?? .distantPast)
     }
 
     /// The items' attributes — no secrets — narrowed by whatever is given.
@@ -88,6 +120,7 @@ enum Vault {
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrLabel as String: label,
             kSecReturnAttributes as String: true,
+            kSecReturnPersistentRef as String: true,
             kSecMatchLimit as String: kSecMatchLimitAll,
         ]
         extra.forEach { query[$0] = $1 }
@@ -102,7 +135,8 @@ enum Vault {
         return rows
     }
 
-    /// One item's secret, by the two things that name it.
+    /// One item's secret, by the two things that name it: for an item the
+    /// keychain listed without its reference.
     private static func secret(host: String, user: String) -> String? {
         var out: CFTypeRef?
         let status = VaultCloud.copyMatching([
@@ -120,9 +154,50 @@ enum Vault {
         return String(data: data, encoding: .utf8)
     }
 
+    /// One item's secret, by its reference. One from the login keychain is
+    /// copied to the shared group as it is read (see VaultCloud), and the
+    /// reference that comes back is then the copy's.
+    private static func secret(_ ref: Ref) -> (password: String, ref: Ref)? {
+        var query = named(ref)
+        query[kSecReturnData as String] = true
+        query[kSecReturnPersistentRef as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var out: CFTypeRef?
+        let status = VaultCloud.copyMatching(query as CFDictionary, &out)
+        guard status == errSecSuccess, let item = out as? [String: Any],
+              let data = item[kSecValueData as String] as? Data,
+              let password = String(data: data, encoding: .utf8)
+        else {
+            if status != errSecItemNotFound, status != errSecSuccess { NSLog("Vault: keychain read failed (%d)", status) }
+            return nil
+        }
+        return (password, self.ref(of: item) ?? ref)
+    }
+
     /// One item's secret, where a list holds only the item: read when a
     /// password is shown or copied, and never as part of a list.
-    static func secret(of kept: Kept) -> String? { secret(host: kept.host, user: kept.user) }
+    static func secret(of kept: Kept) -> String? {
+        guard let ref = kept.ref else { return secret(host: kept.host, user: kept.user) }
+        return secret(ref)?.password
+    }
+
+    /// The query for one item, by its reference, for the keychain it is in.
+    /// The label keeps it to ours wherever the keychain takes it beside a
+    /// reference (see VaultCloud).
+    private static func named(_ ref: Ref) -> [String: Any] {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassInternetPassword,
+            kSecAttrLabel as String: label,
+            kSecValuePersistentRef as String: ref.data,
+        ]
+        if ref.old { query[VaultCloud.old] = true }
+        return query
+    }
+
+    /// The reference a row came with, and which keychain it is in.
+    private static func ref(of row: [String: Any]) -> Ref? {
+        (row[kSecValuePersistentRef as String] as? Data).map { Ref(data: $0, old: row[VaultCloud.old] != nil) }
+    }
 
     /// What an item's attributes say beyond its name: when it was last used,
     /// and whether it was kept from a page sent in the clear.
@@ -138,11 +213,14 @@ enum Vault {
     /// filling a sign-in in, and telling whether one is already kept.
     private static func login(from row: [String: Any]) -> Login? {
         guard let host = row[kSecAttrServer as String] as? String,
-              let user = row[kSecAttrAccount as String] as? String,
-              let password = secret(host: host, user: user)
+              let user = row[kSecAttrAccount as String] as? String
         else { return nil }
         let (used, clear) = noted(row)
-        return Login(host: host, user: user, password: password, used: used, clear: clear)
+        guard let ref = ref(of: row) else {
+            return secret(host: host, user: user).map { Login(host: host, user: user, password: $0, used: used, clear: clear) }
+        }
+        guard let (password, now) = secret(ref) else { return nil }
+        return Login(host: host, user: user, password: password, used: used, clear: clear, ref: now)
     }
 
     /// One item without its secret, for the list.
@@ -151,7 +229,8 @@ enum Vault {
               let user = row[kSecAttrAccount as String] as? String
         else { return nil }
         let (used, clear) = noted(row)
-        return Kept(host: host, user: user, used: used, clear: clear)
+        return Kept(host: host, user: user, used: used, clear: clear,
+                    saved: row[kSecAttrCreationDate as String] as? Date, ref: ref(of: row))
     }
 
     // MARK: - writing
@@ -182,7 +261,13 @@ enum Vault {
         ]
         if let used { fields[kSecAttrComment as String] = String(used.timeIntervalSince1970) }
 
-        let status = VaultCloud.update(identity as CFDictionary, fields as CFDictionary)
+        // The one kept over the same protocol first. With two for this
+        // account, one over http and one over https, writing to both would
+        // make them the same item twice, which the keychain refuses.
+        var same = identity
+        same[kSecAttrProtocol as String] = fields[kSecAttrProtocol as String]
+        var status = VaultCloud.update(same as CFDictionary, fields as CFDictionary)
+        if status == errSecItemNotFound { status = VaultCloud.update(identity as CFDictionary, fields as CFDictionary) }
         if status == errSecSuccess { return true }
         guard status == errSecItemNotFound else { return false }
 
@@ -191,18 +276,63 @@ enum Vault {
         return VaultCloud.add(fresh as CFDictionary, nil) == errSecSuccess
     }
 
-    /// It was just used to sign in. Lists put it first from now on.
+    /// It was just used to sign in. Lists put it first from now on. Noted
+    /// on this one item: by site and account it would also write this
+    /// password over a second item that shares them.
     static func touch(_ login: Login) {
-        save(host: login.host, user: login.user, password: login.password, used: Date(), clear: login.clear)
+        guard let ref = login.ref else {
+            save(host: login.host, user: login.user, password: login.password, used: Date(), clear: login.clear)
+            return
+        }
+        // The login keychain is never written to. An old item has been
+        // copied across by the time it is used (see `secret(_:)`); one whose
+        // copy could not be made is left as it is.
+        guard !ref.old else { return }
+        var fields: [String: Any] = [
+            kSecAttrComment as String: String(Date().timeIntervalSince1970),
+            // Where it was last used is where it is offered from now on…
+            kSecAttrProtocol as String: login.clear ? kSecAttrProtocolHTTP : kSecAttrProtocolHTTPS,
+        ]
+        // …unless the same account is also kept over that protocol: the two
+        // would become the same item twice. Then only the use is noted.
+        if VaultCloud.update(named(ref) as CFDictionary, fields as CFDictionary) == errSecDuplicateItem {
+            fields[kSecAttrProtocol as String] = nil
+            _ = VaultCloud.update(named(ref) as CFDictionary, fields as CFDictionary)
+        }
     }
 
-    static func forget(host: String, user: String) {
-        VaultCloud.delete([
+    /// Takes away this one item, and only this one: a second item with the
+    /// same site and account stays. What VaultCloud does about the copies
+    /// standing behind it, in the shared group or the login keychain, is
+    /// said there.
+    static func forget(_ kept: Kept) {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassInternetPassword,
+            kSecAttrServer as String: kept.host,
+            kSecAttrAccount as String: kept.user,
+            kSecAttrLabel as String: label,
+        ]
+        if let ref = kept.ref { query.merge(named(ref)) { _, new in new } }
+        VaultCloud.delete(query as CFDictionary)
+    }
+
+    /// A new item, beside any already kept for the same site and account:
+    /// what the iPhone app makes when it saves one before iCloud has brought
+    /// the Mac's across. Only a test run makes one this way, to have two
+    /// that share a site and an account.
+    @discardableResult
+    static func plant(host: String, user: String, password: String, clear: Bool) -> Bool {
+        guard Store.testing, let data = password.data(using: .utf8) else { return false }
+        return VaultCloud.add([
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrServer as String: host,
             kSecAttrAccount as String: user,
             kSecAttrLabel as String: label,
-        ] as CFDictionary)
+            kSecValueData as String: data,
+            kSecAttrAuthenticationType as String: kSecAttrAuthenticationTypeHTMLForm,
+            kSecAttrProtocol as String: clear ? kSecAttrProtocolHTTP : kSecAttrProtocolHTTPS,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked,
+        ] as CFDictionary, nil) == errSecSuccess
     }
 
     // MARK: - sites that asked not to be asked

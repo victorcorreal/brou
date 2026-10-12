@@ -136,8 +136,9 @@ struct PasswordsPanel: View {
         }
     }
 
-    /// One account: the name, the password as dots, and the three things to
-    /// do with it. Show asks the Mac who you are first.
+    /// One account: the name, when it was used and saved, the password as
+    /// dots, and the three things to do with it. Show asks the Mac who you
+    /// are first.
     private struct Account: View {
         let login: Kept
         let copy: () -> Void
@@ -152,12 +153,18 @@ struct PasswordsPanel: View {
 
         var body: some View {
             HStack(spacing: 10) {
-                Text(login.user.isEmpty ? "No username" : login.user)
-                    .font(.system(size: 12))
-                    .foregroundStyle(login.user.isEmpty ? Palette.faint : Palette.ink)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(minWidth: 120, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(login.user.isEmpty ? "No username" : login.user)
+                        .font(.system(size: 12))
+                        .foregroundStyle(login.user.isEmpty ? Palette.faint : Palette.ink)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(when)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Palette.muted)
+                        .lineLimit(1)
+                }
+                .frame(minWidth: 120, alignment: .leading)
 
                 // Ten dots whatever it is: the row does not know the length
                 // until the secret is read, and a count that changed with it
@@ -184,6 +191,15 @@ struct PasswordsPanel: View {
             .animation(Motion.quick, value: hovering)
             .animation(Motion.quick, value: shown)
             .onDisappear { conceal() }
+        }
+
+        /// When it was last used and saved, and whether it was kept over
+        /// http: what tells two alike apart, as on the iPhone.
+        private var when: String {
+            var parts = [login.used.map { "Used \($0.formatted(date: .abbreviated, time: .omitted))" } ?? "Never used"]
+            if let saved = login.saved { parts.append("Saved \(saved.formatted(date: .abbreviated, time: .omitted))") }
+            if login.clear { parts.append("http") }
+            return parts.joined(separator: " · ")
         }
 
         private func reveal() {

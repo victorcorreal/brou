@@ -807,7 +807,7 @@ final class Browser: NSObject, ObservableObject {
         }
         let groups = Dictionary(grouping: rows, by: \.host)
         return groups.keys.sorted().map { host in
-            SiteRow(host: host, logins: groups[host]!.sorted { $0.user < $1.user })
+            SiteRow(host: host, logins: groups[host]!.sorted(by: Vault.listed))
         }
     }
 
@@ -822,8 +822,10 @@ final class Browser: NSObject, ObservableObject {
         announce("Kept for \(host)")
     }
 
+    /// This one item, and only this one: a second with the same site and
+    /// account stays (see `Vault.Ref`).
     func forget(_ login: Kept) {
-        Vault.forget(host: login.host, user: login.user)
+        Vault.forget(login)
         relist()
     }
 
