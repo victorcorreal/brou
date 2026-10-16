@@ -65,6 +65,52 @@ final class FetchEntryTests: XCTestCase {
         XCTAssertNil(entry.webView)
     }
 
+    func testALostConnectionIsResumedOnItsOwnOnceAndNotAgainFromAResumedAttempt() async throws {
+        let webView = makeWebView()
+        let entry = FetchEntry(name: "archive.zip", request: nil, webView: webView)
+        let lost = NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost)
+        let timedOut = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)
+
+        entry.failed(timedOut, resumeData: Data([1]))
+        XCTAssertFalse(entry.resumesOnItsOwn(after: timedOut))
+        entry.failed(lost, resumeData: Data([1]))
+        XCTAssertTrue(entry.resumesOnItsOwn(after: lost))
+        XCTAssertNotNil(Fetches().beginResume(entry))
+
+        // The resumed attempt is cut off too: its resume data is let go.
+        entry.failed(lost, resumeData: Data([2]))
+        XCTAssertNil(entry.resumeData)
+        XCTAssertFalse(entry.canResume)
+        XCTAssertFalse(entry.resumesOnItsOwn(after: lost))
+    }
+
+    func testLandingNumbersPastAFileOrAnotherDownloadUnderTheName() throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Search-landing-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("report.pdf")
+        let partial = FetchEntry.partial(for: file)
+        XCTAssertEqual(partial.lastPathComponent, "report.pdf.download")
+
+        try Data("first".utf8).write(to: partial)
+        XCTAssertEqual(Fetches.land(partial, as: file), file)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: partial.path))
+
+        // "report.pdf" is there now, and "report 2.pdf" is another download's.
+        try Data("second".utf8).write(to: partial)
+        let theirs = FetchEntry.partial(for: folder.appendingPathComponent("report 2.pdf"))
+        try Data("theirs".utf8).write(to: theirs)
+        let landed = Fetches.land(partial, as: file)
+
+        XCTAssertEqual(landed.lastPathComponent, "report 3.pdf")
+        XCTAssertEqual(try Data(contentsOf: landed), Data("second".utf8))
+        XCTAssertEqual(try Data(contentsOf: file), Data("first".utf8))
+        XCTAssertEqual(try Data(contentsOf: theirs), Data("theirs".utf8))
+        XCTAssertTrue(FetchEntry.taken(folder.appendingPathComponent("report 2.pdf")))
+        XCTAssertFalse(FetchEntry.taken(folder.appendingPathComponent("report 4.pdf")))
+    }
+
     private func makeWebView() -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()

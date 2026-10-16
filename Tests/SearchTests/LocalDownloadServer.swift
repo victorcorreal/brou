@@ -16,6 +16,7 @@ final class LocalDownloadServer {
     private var requests: [Request] = []
     private var completedPaths: [String] = []
     private var stopped = false
+    private let cancelTransferGate = DispatchSemaphore(value: 0)
     private let payload: Data
     let port: UInt16
 
@@ -109,6 +110,7 @@ final class LocalDownloadServer {
         stopped = true
         requestsLock.unlock()
         guard shouldStop else { return }
+        cancelTransferGate.signal()
         source.cancel()
         shutdown(socket, SHUT_RDWR)
         Darwin.close(socket)
@@ -137,7 +139,10 @@ final class LocalDownloadServer {
         requestsLock.lock()
         requests.append(request)
         let attempt = requests.filter { $0.path == request.path }.count
-        let shouldTruncate = ["/failure.bin", "/retry.bin"].contains(request.path) && attempt == 1
+        // How many attempts are cut off partway. A lost connection is
+        // resumed once on its own, so the failure fixture is cut twice.
+        let cuts = ["/failure.bin": 2, "/retry.bin": 1, "/lost.bin": 1][request.path] ?? 0
+        let shouldTruncate = attempt <= cuts
         requestsLock.unlock()
 
         if request.path == "/page" {
@@ -181,6 +186,13 @@ final class LocalDownloadServer {
             let next = min(offset + chunkSize, end)
             guard sendAll(client, payload.subdata(in: offset..<next)) else { return }
             offset = next
+            // Cancellation cases require a live partial transfer. A clean CI
+            // WebKit process can publish its first progress after the original
+            // two-second response already finished. Hold the response open;
+            // fixture.stop() releases this client during test teardown.
+            if request.path == "/cancel.bin", offset - lower == 256 * 1024 {
+                cancelTransferGate.wait()
+            }
             // Leave enough time for the test to pause after real bytes arrive.
             Thread.sleep(forTimeInterval: 0.008)
         }
