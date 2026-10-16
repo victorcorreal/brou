@@ -160,7 +160,8 @@ final class FormRelay: NSObject, WKScriptMessageHandler {
       // no password box in sight, a box is the name's when the page says so
       // (autocomplete "username" or "email") beside one other box at most,
       // or when it is the only box to type in that its form has, with a
-      // button to send it. Never a search box, a code's or a coupon's.
+      // button to send it. Never a search box, a code's or a coupon's, nor
+      // one with a list of its own.
       function texty(el) {
         if (!el || (el.tagName || '').toLowerCase() !== 'input' || el.disabled || el.readOnly) return false;
         var kind = (el.type || 'text').toLowerCase();
@@ -173,8 +174,16 @@ final class FormRelay: NSObject, WKScriptMessageHandler {
         if (/(^|[\\s_-])q($|[\\s_-])|query|search|otp|otc|one-time|captcha|code|coupon|promo/.test(words)) return true;
         return !!(el.closest && el.closest('[role="search"]'));
       }
+      // A box with a list of its own — a mail's recipients, an address,
+      // tags — is the page's to fill: ours would hang over its list. No
+      // sign-in's name box is one: Google's, Microsoft's, Okta's.
+      function picker(el) {
+        var popup = (el.getAttribute('aria-haspopup') || 'false').toLowerCase();
+        return (el.getAttribute('role') || '').toLowerCase() === 'combobox' || popup !== 'false' ||
+          (el.getAttribute('aria-autocomplete') || 'none').toLowerCase() !== 'none' || el.hasAttribute('list');
+      }
       function nameBox(el) {
-        if (!texty(el) || aside(el)) return false;
+        if (!texty(el) || aside(el) || picker(el)) return false;
         var scope = el.form || (el.closest && el.closest('form')) || document;
         var all = scope.querySelectorAll('input'), others = 0;
         for (var i = 0; i < all.length; i++) {

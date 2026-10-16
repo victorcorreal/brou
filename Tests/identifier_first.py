@@ -43,6 +43,14 @@ PAGES = {
     "/many": '<form action="/s"><input id="a" name="first"><input name="last"><input name="city">'
              '<input name="street"><button>Send</button></form>',
     "/code": '<form action="/s"><input id="c" name="otc" autocomplete="one-time-code"><button>Verify</button></form>',
+    # Gmail's To box: alone in its form, with a button, and a list of its
+    # own (role=combobox). The subject is outside the form.
+    "/compose": '<form action="/send"><input id="to" type="text" role="combobox" aria-autocomplete="list" '
+                'aria-haspopup="listbox" aria-label="To recipients" autocomplete="off"><div role="button">Send</div>'
+                '</form><input id="subject" name="subjectbox">',
+    # The same, marked as an e-mail address: still the page's own list.
+    "/recipient": '<form action="/send"><input id="to" type="email" autocomplete="email" role="combobox" '
+                  'aria-autocomplete="list"><button>Send</button></form>',
 }
 
 
@@ -152,6 +160,10 @@ def main():
         t.ok("a box among many offers nothing", focus(m, "a").get("shown") is False)
         k = open_page(base, "/code")
         t.ok("a one-time code's box offers nothing", focus(k, "c").get("shown") is False)
+        g = open_page(base, "/compose")
+        t.ok("a mail's To box, with its own list, offers nothing", focus(g, "to").get("shown") is False)
+        e = open_page(base, "/recipient")
+        t.ok("…nor one marked autocomplete=email", focus(e, "to").get("shown") is False)
 
         # (d) A name and password on one page, as before.
         d = open_page(base, "/both")
