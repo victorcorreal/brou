@@ -212,9 +212,8 @@ enum Vault {
     /// One item with its secret, for the paths that hand a password over:
     /// filling a sign-in in, and telling whether one is already kept.
     private static func login(from row: [String: Any]) -> Login? {
-        guard let host = row[kSecAttrServer as String] as? String,
-              let user = row[kSecAttrAccount as String] as? String
-        else { return nil }
+        let user = account(of: row)
+        guard let host = row[kSecAttrServer as String] as? String else { return nil }
         let (used, clear) = noted(row)
         guard let ref = ref(of: row) else {
             return secret(host: host, user: user).map { Login(host: host, user: user, password: $0, used: used, clear: clear) }
@@ -223,11 +222,19 @@ enum Vault {
         return Login(host: host, user: user, password: password, used: used, clear: clear, ref: now)
     }
 
+    /// The account an item is kept under. A sign-in with a password box
+    /// alone — an access code, a dashboard's — is kept under no name, and
+    /// the keychain lists such an item with no account at all, not an
+    /// empty one: read as missing, it was saved and never offered again,
+    /// nor shown in Settings, nor forgotten.
+    private static func account(of row: [String: Any]) -> String {
+        row[kSecAttrAccount as String] as? String ?? ""
+    }
+
     /// One item without its secret, for the list.
     private static func kept(from row: [String: Any]) -> Kept? {
-        guard let host = row[kSecAttrServer as String] as? String,
-              let user = row[kSecAttrAccount as String] as? String
-        else { return nil }
+        guard let host = row[kSecAttrServer as String] as? String else { return nil }
+        let user = account(of: row)
         let (used, clear) = noted(row)
         return Kept(host: host, user: user, used: used, clear: clear,
                     saved: row[kSecAttrCreationDate as String] as? Date, ref: ref(of: row))
