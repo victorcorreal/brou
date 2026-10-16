@@ -213,6 +213,7 @@ final class FetchEntry: ObservableObject, Identifiable {
             self.destination = destination
             destinationWasAbsent = nil
             partialFileVersion = nil
+            resumedOnItsOwn = false
         }
         operationID = UUID()
         return operationID
@@ -406,6 +407,12 @@ final class Fetches: ObservableObject {
     /// Destination chosen by the browser, or remembered for a resumed attempt.
     func destination(for download: WKDownload) -> URL? {
         running[ObjectIdentifier(download)]?.entry?.destination
+    }
+
+    /// A name a running download has, before WebKit has made its partial
+    /// file: two begun in the same moment never get the same one.
+    func claims(_ file: URL) -> Bool {
+        running.values.contains { $0.entry?.destination == file }
     }
 
     /// Where the file is going, known: its progress is put on the partial

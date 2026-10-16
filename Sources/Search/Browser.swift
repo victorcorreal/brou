@@ -5113,7 +5113,7 @@ extension Browser: WKDownloadDelegate {
     private static func free(_ name: String, in folder: URL) -> URL {
         let file = folder.appendingPathComponent(name)
         var n = 1
-        while FetchEntry.taken(FetchEntry.numbered(file, n)) { n += 1 }
+        while FetchEntry.taken(FetchEntry.numbered(file, n)) || Shared.fetches.claims(FetchEntry.numbered(file, n)) { n += 1 }
         return FetchEntry.numbered(file, n)
     }
 }
