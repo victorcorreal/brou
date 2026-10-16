@@ -13,8 +13,8 @@ failed = result.returncode != 0
 listing = subprocess.run(["swift", "test", "list"], check=True, capture_output=True, text=True)
 cases = [line.strip() for line in listing.stdout.splitlines()
          if re.fullmatch(r"SearchTests\.DownloadLifecycleTests/test\w+", line.strip())]
-if len(cases) != 7:
-    raise RuntimeError(f"Expected 7 WebKit download cases; discovered {cases}")
+if len(cases) != 10:
+    raise RuntimeError(f"Expected 10 WebKit download cases; discovered {cases}")
 for index, case in enumerate(cases):
     print(f"Isolated WebKit case: {case}", flush=True)
     env = dict(os.environ, SEARCH_PROBE=f"ci-download-{os.getpid()}-{index}")

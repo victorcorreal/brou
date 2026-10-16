@@ -4567,6 +4567,22 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         }
     }
 
+    /// A lost connection, resumed on its own a moment later (see
+    /// `FetchEntry.resumesOnItsOwn`). The row says "Resuming…" meanwhile,
+    /// and Cancel still takes it away.
+    private func resumeOnItsOwn(_ entry: FetchEntry) {
+        guard let operation = fetches.beginResume(entry), let data = operation.resumeData else {
+            announce("Download failed")
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Fetches.breather) {
+            guard self.fetches.accepts(operation) else { return }
+            operation.webView.resumeDownload(fromResumeData: data) { download in
+                self.continueDownload(download, operation)
+            }
+        }
+    }
+
     /// From the start, to the folder it went to, under the name it was asked
     /// for: numbered afresh, " 2" and on, past whatever is there now, the
     /// last attempt's half-written file let go first.
@@ -4956,7 +4972,12 @@ extension Browser: WKDownloadDelegate {
         let asked = response.url.flatMap { namedDownloads.removeValue(forKey: $0) }
         let chosen = fetches.destination(for: download)
         let name = Browser.fileName(asked ?? suggestedFilename)
-        let file = chosen ?? whereToSave(name)
+        var file = chosen ?? whereToSave(name)
+        // A name picked in the panel whose partial file is there already,
+        // another download's or one cut short before, is numbered past it.
+        if chosen == nil, let picked = file, FileManager.default.fileExists(atPath: FetchEntry.partial(for: picked).path) {
+            file = Browser.free(picked.lastPathComponent, in: picked.deletingLastPathComponent())
+        }
         guard let file else {
             if let ended = fetches.destinationCancelled(download) {
                 ended.owner.relinquish(download)
@@ -4970,19 +4991,19 @@ extension Browser: WKDownloadDelegate {
         // A retry is numbered afresh from the name asked for, or the one you
         // gave it: never from "report 2.pdf", whose own " 2" is not its name.
         if chosen == nil { fetches.entry(for: download)?.retryName = prefs.asksWhereToSave ? file.lastPathComponent : name }
-        completionHandler(file)
+        // WebKit writes under the partial name; the file has its own once whole.
+        completionHandler(FetchEntry.partial(for: file))
         announce("Downloading \(file.lastPathComponent)")
     }
 
     func downloadDidFinish(_ download: WKDownload) {
         let entry = fetches.entry(for: download)
         let source = download.originalRequest?.url ?? entry?.request?.url
-        let file = download.progress.fileURL ?? entry?.destination
         let listed = !unlisted.contains(ObjectIdentifier(download))
-        let ended = fetches.finish(download, file: file)
+        let ended = fetches.finish(download)
         (ended?.owner ?? self).relinquish(download)
-        guard ended != nil else { return }
-        guard let file else {
+        guard let ended else { return }
+        guard let file = ended.file else {
             announce("Download finished")
             return
         }
@@ -5082,22 +5103,18 @@ extension Browser: WKDownloadDelegate {
     ) {
         guard let ended = fetches.fail(download, error: error, resumeData: resumeData) else { return }
         ended.owner.relinquish(download)
-        if ended.announceFailure { announce("Download failed") }
+        if let entry = ended.resumes { ended.owner.resumeOnItsOwn(entry) }
+        else if ended.announceFailure { announce("Download failed") }
     }
 
     /// WebKit refuses to write over a file that is already there, so the name
-    /// gains a number rather than the download quietly failing.
+    /// gains a number rather than the download quietly failing: past another
+    /// download's partial file too, whose name is spoken for.
     private static func free(_ name: String, in folder: URL) -> URL {
-        let stem = (name as NSString).deletingPathExtension
-        let ext = (name as NSString).pathExtension
-        var candidate = folder.appendingPathComponent(name)
-        var n = 2
-        while FileManager.default.fileExists(atPath: candidate.path) {
-            let next = ext.isEmpty ? "\(stem) \(n)" : "\(stem) \(n).\(ext)"
-            candidate = folder.appendingPathComponent(next)
-            n += 1
-        }
-        return candidate
+        let file = folder.appendingPathComponent(name)
+        var n = 1
+        while FetchEntry.taken(FetchEntry.numbered(file, n)) { n += 1 }
+        return FetchEntry.numbered(file, n)
     }
 }
 

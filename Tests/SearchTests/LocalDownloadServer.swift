@@ -139,7 +139,10 @@ final class LocalDownloadServer {
         requestsLock.lock()
         requests.append(request)
         let attempt = requests.filter { $0.path == request.path }.count
-        let shouldTruncate = ["/failure.bin", "/retry.bin"].contains(request.path) && attempt == 1
+        // How many attempts are cut off partway. A lost connection is
+        // resumed once on its own, so the failure fixture is cut twice.
+        let cuts = ["/failure.bin": 2, "/retry.bin": 1, "/lost.bin": 1][request.path] ?? 0
+        let shouldTruncate = attempt <= cuts
         requestsLock.unlock()
 
         if request.path == "/page" {

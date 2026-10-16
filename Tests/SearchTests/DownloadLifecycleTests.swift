@@ -81,14 +81,29 @@ final class DownloadLifecycleTests: XCTestCase {
     func testWebKitFailureWithResumeDataResumesSameEntryAndDestination() async throws {
         let tab = try await openFixturePage()
         let entry = try await startDownload("/failure.bin", in: tab)
+        let originalID = entry.id
         try await waitUntil { entry.state == .failed }
 
-        let originalID = entry.id
         let reason = try XCTUnwrap(entry.errorDescription)
         let destination = try XCTUnwrap(entry.destination)
         XCTAssertFalse(reason.isEmpty)
-        XCTAssertTrue(entry.canResume, "WebKit should return resume data for the ranged fixture")
+        // Cut off, resumed once on its own from where it stopped, in the
+        // same row, and cut off again: then it is left to you.
+        XCTAssertEqual(entry.id, originalID)
+        XCTAssertEqual(fixture.count("/failure.bin"), 2)
+        XCTAssertEqual(Self.rangeOffset(fixture.ranges("/failure.bin").last ?? nil), 128 * 1024)
+        // WebKit's resume data from a resumed attempt counts the first part
+        // twice: resumed from it, the file skips 128 KB and looks whole.
+        // Only Retry, from the start, is offered.
+        XCTAssertFalse(entry.canResume)
         XCTAssertTrue(entry.canRetry)
+        // Cut off partway, the file has its partial name, never the whole
+        // one's; the row shows the name it will have.
+        let partial = try XCTUnwrap(entry.partial)
+        XCTAssertEqual(partial.lastPathComponent, "fixture.bin.download")
+        XCTAssertEqual(entry.name, "fixture.bin")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: partial.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
 
         if let snapshotPath = ProcessInfo.processInfo.environment["SEARCH_DOWNLOAD_SNAPSHOT"], !snapshotPath.isEmpty {
             let paused = try await startDownload("/range.bin", in: tab)
@@ -96,17 +111,14 @@ final class DownloadLifecycleTests: XCTestCase {
             browser.pauseDownload(paused)
             try await waitUntil { paused.state == .paused }
             XCTAssertTrue(paused.canResume)
-            XCTAssertTrue(FileManager.default.fileExists(atPath: try XCTUnwrap(paused.destination).path))
+            XCTAssertTrue(FileManager.default.fileExists(atPath: try XCTUnwrap(paused.partial).path))
 
             let active = try await startDownload("/range.bin", in: tab)
             try await waitUntil { active.completedBytes >= 32 * 1024 }
             try writePanelSnapshot(to: URL(fileURLWithPath: snapshotPath))
         }
 
-        browser.resumeDownload(entry)
-        // A repeated click while WebKit is creating the resumed download must
-        // not start a second attempt or replace the row.
-        browser.resumeDownload(entry)
+        browser.retryDownload(entry)
         try await waitUntil { entry.state == .downloading }
         XCTAssertEqual(entry.id, originalID)
         XCTAssertEqual(entry.destination, destination)
@@ -116,7 +128,9 @@ final class DownloadLifecycleTests: XCTestCase {
         }
         XCTAssertFalse(browser.fetches.entries.contains { $0.id == originalID })
         XCTAssertEqual(try Data(contentsOf: destination), fixture.expectedBytes())
-        XCTAssertTrue(fixture.ranges("/failure.bin").contains { Self.rangeOffset($0) > 0 })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: partial.path))
+        XCTAssertEqual(fixture.count("/failure.bin"), 3)
+        XCTAssertNil(fixture.ranges("/failure.bin").last ?? nil)
         XCTAssertTrue(fixture.cookies("/failure.bin").allSatisfy { $0?.contains("download-session=fixture-cookie") == true })
     }
 
@@ -136,11 +150,21 @@ final class DownloadLifecycleTests: XCTestCase {
         XCTAssertTrue(entry.canResume)
         XCTAssertEqual(entry.id, originalID)
         XCTAssertEqual(entry.destination, destination)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: destination.path))
+        let partial = try XCTUnwrap(entry.partial)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: partial.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
 
+        // A repeated click while WebKit is creating the resumed download must
+        // not start a second attempt or replace the row.
         browser.resumeDownload(entry)
         browser.resumeDownload(entry)
         try await waitUntil { entry.state == .downloading }
+        // Paused again and resumed, WebKit would skip as many bytes as came
+        // before the first pause (see FetchEntry.continued): a resumed
+        // download goes on to the end, or is cancelled.
+        XCTAssertFalse(entry.canPause)
+        browser.pauseDownload(entry)
+        XCTAssertEqual(entry.state, .downloading)
         // The row, the ring and Finder's bar go on from what had come in,
         // not from nothing: the first measure after the resume already
         // counts the bytes on disk.
@@ -158,6 +182,7 @@ final class DownloadLifecycleTests: XCTestCase {
 
         XCTAssertFalse(browser.fetches.entries.contains { $0.id == originalID })
         XCTAssertEqual(try Data(contentsOf: destination), fixture.expectedBytes())
+        XCTAssertFalse(FileManager.default.fileExists(atPath: partial.path))
         XCTAssertTrue(fixture.ranges("/range.bin").contains { Self.rangeOffset($0) > 0 })
         XCTAssertTrue(fixture.cookies("/range.bin").allSatisfy { $0?.contains("download-session=fixture-cookie") == true })
     }
@@ -190,7 +215,7 @@ final class DownloadLifecycleTests: XCTestCase {
         let tab = try await openFixturePage()
         let entry = try await startDownload("/cancel.bin", in: tab)
         try await waitUntil { entry.completedBytes >= 64 * 1024 && entry.destination != nil }
-        let destination = try XCTUnwrap(entry.destination)
+        let partial = try XCTUnwrap(entry.partial)
         let store = try XCTUnwrap(entry.store)
         let id = entry.id
 
@@ -200,14 +225,14 @@ final class DownloadLifecycleTests: XCTestCase {
         }
 
         XCTAssertNil(entry.store, "a forgotten store is still kept by its row")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: partial.path))
     }
 
     func testCancelRemovesEntryAndPartialFile() async throws {
         let tab = try await openFixturePage()
         let entry = try await startDownload("/cancel.bin", in: tab)
         try await waitUntil { entry.completedBytes >= 64 * 1024 && entry.destination != nil }
-        let destination = try XCTUnwrap(entry.destination)
+        let partial = try XCTUnwrap(entry.partial)
         let id = entry.id
 
         browser.cancelDownload(entry)
@@ -216,7 +241,7 @@ final class DownloadLifecycleTests: XCTestCase {
             !browser.fetches.entries.contains { $0.id == id } && browser.downloading.isEmpty
         }
 
-        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: partial.path))
         XCTAssertTrue(browser.loot.kept.isEmpty)
     }
 
@@ -224,18 +249,70 @@ final class DownloadLifecycleTests: XCTestCase {
         let tab = try await openFixturePage()
         let entry = try await startDownload("/range.bin", in: tab)
         try await waitUntil { entry.completedBytes >= 64 * 1024 && entry.destination != nil }
-        let destination = try XCTUnwrap(entry.destination)
+        let partial = try XCTUnwrap(entry.partial)
 
         browser.pauseDownload(entry)
         try await waitUntil { entry.state == .paused }
-        XCTAssertTrue(FileManager.default.fileExists(atPath: destination.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: partial.path))
 
         let replacement = Data("a file placed here after the pause".utf8)
-        try replacement.write(to: destination, options: .atomic)
+        try replacement.write(to: partial, options: .atomic)
         browser.cancelDownload(entry)
         try await waitUntil { !browser.fetches.entries.contains { $0.id == entry.id } }
 
-        XCTAssertEqual(try Data(contentsOf: destination), replacement)
+        XCTAssertEqual(try Data(contentsOf: partial), replacement)
+    }
+
+    func testLostConnectionIsResumedOnItsOwnAndTheFileLandsUnderItsName() async throws {
+        let tab = try await openFixturePage()
+        let entry = try await startDownload("/lost.bin", in: tab)
+        try await waitUntil { entry.completedBytes > 0 && entry.destination != nil }
+        let destination = try XCTUnwrap(entry.destination)
+        let partial = try XCTUnwrap(entry.partial)
+        XCTAssertEqual(partial.lastPathComponent, "fixture.bin.download")
+        XCTAssertEqual(entry.name, "fixture.bin")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path), "the file had its name before it was whole")
+
+        // Cut off at 128 KB, and resumed a moment later with nobody asking.
+        try await waitUntil { browser.loot.kept.contains { $0.path == destination.path } }
+        XCTAssertEqual(try Data(contentsOf: destination), fixture.expectedBytes())
+        XCTAssertFalse(FileManager.default.fileExists(atPath: partial.path))
+        XCTAssertEqual(fixture.count("/lost.bin"), 2)
+        XCTAssertTrue(fixture.ranges("/lost.bin").contains { Self.rangeOffset($0) > 0 })
+    }
+
+    func testAFileGivenTheNameMeanwhileIsKeptAndTheDownloadIsNumbered() async throws {
+        let tab = try await openFixturePage()
+        let entry = try await startDownload("/range.bin", in: tab)
+        try await waitUntil { entry.completedBytes >= 64 * 1024 && entry.destination != nil }
+        let destination = try XCTUnwrap(entry.destination)
+        browser.pauseDownload(entry)
+        try await waitUntil { entry.state == .paused }
+
+        let theirs = Data("a file that took the name meanwhile".utf8)
+        try theirs.write(to: destination)
+        browser.resumeDownload(entry)
+        let numbered = downloadFolder.appendingPathComponent("fixture 2.bin")
+        try await waitUntil { browser.loot.kept.contains { $0.path == numbered.path } }
+
+        XCTAssertEqual(try Data(contentsOf: destination), theirs)
+        XCTAssertEqual(try Data(contentsOf: numbered), fixture.expectedBytes())
+        XCTAssertFalse(FileManager.default.fileExists(atPath: FetchEntry.partial(for: destination).path))
+    }
+
+    func testTwoDownloadsOfOneNameEachHaveTheirOwn() async throws {
+        let tab = try await openFixturePage()
+        // Held open partway until the test ends.
+        let first = try await startDownload("/cancel.bin", in: tab)
+        try await waitUntil { first.completedBytes > 0 && first.destination != nil }
+        let second = try await startDownload("/range.bin", in: tab)
+        try await waitUntil { second.destination != nil }
+
+        XCTAssertEqual(first.destination?.lastPathComponent, "fixture.bin")
+        XCTAssertEqual(second.destination?.lastPathComponent, "fixture 2.bin")
+        try await waitUntil { browser.loot.kept.contains { $0.name == "fixture 2.bin" } }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: downloadFolder.appendingPathComponent("fixture.bin").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: try XCTUnwrap(first.partial).path))
     }
 
     func testPrivateDownloadNeverEntersSharedEntriesHistoryOrCompletedList() async throws {

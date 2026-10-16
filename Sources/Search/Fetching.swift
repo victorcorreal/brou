@@ -35,7 +35,7 @@ final class FetchEntry: ObservableObject, Identifiable {
         let modified: Date
     }
 
-    var canPause: Bool { state == .downloading && request.map(Self.replayable) == true }
+    var canPause: Bool { state == .downloading && !continued && request.map(Self.replayable) == true }
     var canResume: Bool {
         (state == .paused || state == .failed) && resumeData != nil && store != nil
             && request.map(Self.replayable) != false
@@ -58,14 +58,25 @@ final class FetchEntry: ObservableObject, Identifiable {
     /// its web process, alive once its tab has closed.
     weak var webView: WKWebView?
     private(set) var store: WKWebsiteDataStore?
+    /// Where the file goes, under the name it has once whole.
     var destination: URL?
+    /// Where it is written until then: a file cut short is never taken for
+    /// the whole one. Everything below about "the partial file" is this one.
+    var partial: URL? { destination.map(Self.partial(for:)) }
     /// The name asked for, before " 2" and so on: a retry is numbered afresh.
     var retryName: String
     var download: WKDownload?
     var pendingStop: StopAction?
     var operationID = UUID()
+    /// Whether nothing was at the partial path when WebKit was given it.
     private var destinationWasAbsent: Bool?
     private var partialFileVersion: PartialFileVersion?
+    private var resumedOnItsOwn = false
+    /// This attempt went on from resume data. WebKit's resume data from such
+    /// an attempt counts the part before it twice: resumed from it, the file
+    /// skips as many bytes and still looks whole (seen on macOS 27). So a
+    /// resumed attempt is neither paused nor resumed again; Retry stays.
+    private var continued = false
 
     init(name: String, request: URLRequest?, webView: WKWebView?) {
         self.name = name
@@ -99,19 +110,20 @@ final class FetchEntry: ObservableObject, Identifiable {
     /// claimed during active progress; never claim an unknown path here.
     func recordTerminal(_ progress: Progress) {
         record(progress, trackFile: false)
-        guard destinationWasAbsent == true, let destination,
+        guard destinationWasAbsent == true, let partial,
               let expected = partialFileVersion,
-              let current = Self.partialFileVersion(at: destination),
+              let current = Self.partialFileVersion(at: partial),
               current.volume == expected.volume, current.inode == expected.inode else { return }
         partialFileVersion = current
     }
 
     func reached(_ file: URL) {
+        let partial = Self.partial(for: file)
         if destination != file {
-            destinationWasAbsent = !FileManager.default.fileExists(atPath: file.path)
+            destinationWasAbsent = !FileManager.default.fileExists(atPath: partial.path)
             partialFileVersion = nil
         } else if destinationWasAbsent == nil {
-            destinationWasAbsent = !FileManager.default.fileExists(atPath: file.path)
+            destinationWasAbsent = !FileManager.default.fileExists(atPath: partial.path)
         }
         destination = file
         name = file.lastPathComponent
@@ -122,18 +134,18 @@ final class FetchEntry: ObservableObject, Identifiable {
     /// observed during that transfer. Discard paths only while that identity,
     /// size and modification time still match.
     func discardOwnedPartialFile() {
-        guard destinationWasAbsent == true, let destination,
+        guard destinationWasAbsent == true, let partial,
               let expected = partialFileVersion,
-              Self.partialFileVersion(at: destination) == expected else { return }
-        try? FileManager.default.removeItem(at: destination)
+              Self.partialFileVersion(at: partial) == expected else { return }
+        try? FileManager.default.removeItem(at: partial)
     }
 
     /// Whether a resume would go on writing the file this download began and
     /// nothing else: WebKit appends to whatever is at the path. A file put
     /// there meanwhile, or the partial one changed, and it starts over instead.
     var partialFileIsOurs: Bool {
-        guard let destination else { return true }
-        let current = Self.partialFileVersion(at: destination)
+        guard let partial else { return true }
+        let current = Self.partialFileVersion(at: partial)
         guard let expected = partialFileVersion else { return current == nil }
         return destinationWasAbsent == true && current == expected
     }
@@ -168,9 +180,20 @@ final class FetchEntry: ObservableObject, Identifiable {
     func failed(_ error: Error, resumeData: Data?) {
         download = nil
         pendingStop = nil
-        self.resumeData = resumeData
+        self.resumeData = continued ? nil : resumeData
         errorDescription = Self.reason(for: error)
         state = .failed
+    }
+
+    /// A connection lost partway is resumed once on its own, as you would by
+    /// hand: a moment's break in the network no longer leaves the file short.
+    /// Once only, so a server that keeps cutting it off is left to you.
+    func resumesOnItsOwn(after error: Error) -> Bool {
+        let error = error as NSError
+        guard !resumedOnItsOwn, canResume, error.domain == NSURLErrorDomain,
+              error.code == NSURLErrorNetworkConnectionLost else { return false }
+        resumedOnItsOwn = true
+        return true
     }
 
     func preparingToStop(_ action: StopAction) -> UUID {
@@ -183,6 +206,7 @@ final class FetchEntry: ObservableObject, Identifiable {
     func preparingToStart(destination: URL? = nil) -> UUID {
         state = .resuming
         errorDescription = nil
+        continued = destination == nil
         // A retry writes a file of its own, even at the same path: nothing
         // claimed for the last attempt is claimed for this one.
         if let destination {
@@ -208,6 +232,7 @@ final class FetchEntry: ObservableObject, Identifiable {
         destination = nil
         destinationWasAbsent = nil
         partialFileVersion = nil
+        continued = false
         download = nil
         pendingStop = nil
         operationID = UUID()
@@ -223,8 +248,8 @@ final class FetchEntry: ObservableObject, Identifiable {
     }
 
     private func trackPartialFile() {
-        guard completedBytes > 0, destinationWasAbsent == true, let destination,
-              let current = Self.partialFileVersion(at: destination) else { return }
+        guard completedBytes > 0, destinationWasAbsent == true, let partial,
+              let current = Self.partialFileVersion(at: partial) else { return }
         if let previous = partialFileVersion,
            (previous.volume != current.volume || previous.inode != current.inode) {
             return
@@ -239,6 +264,28 @@ final class FetchEntry: ObservableObject, Identifiable {
               let size = (attributes[.size] as? NSNumber)?.uint64Value,
               let modified = attributes[.modificationDate] as? Date else { return nil }
         return PartialFileVersion(volume: volume, inode: inode, size: size, modified: modified)
+    }
+
+    /// The name a file has while it comes in, as Safari's: "report.pdf.download".
+    /// It doesn't open, and nobody takes the half that came for the whole.
+    static func partial(for file: URL) -> URL {
+        file.appendingPathExtension("download")
+    }
+
+    /// "report.pdf", then "report 2.pdf", "report 3.pdf" and on.
+    static func numbered(_ file: URL, _ n: Int) -> URL {
+        guard n > 1 else { return file }
+        let name = file.lastPathComponent
+        let stem = (name as NSString).deletingPathExtension
+        let ext = (name as NSString).pathExtension
+        return file.deletingLastPathComponent()
+            .appendingPathComponent(ext.isEmpty ? "\(stem) \(n)" : "\(stem) \(n).\(ext)")
+    }
+
+    /// A name spoken for: a file is there, or one is coming in under it.
+    static func taken(_ file: URL) -> Bool {
+        FileManager.default.fileExists(atPath: file.path)
+            || FileManager.default.fileExists(atPath: partial(for: file).path)
     }
 }
 
@@ -278,7 +325,14 @@ final class Fetches: ObservableObject {
     struct Ended {
         let owner: Browser
         let announceFailure: Bool
+        /// Where the file is, now that it is whole.
+        var file: URL?
+        /// A row to resume on its own, a moment from now.
+        var resumes: FetchEntry?
     }
+
+    /// How long a lost connection is given before it is resumed on its own.
+    static let breather: TimeInterval = 1
 
     private final class Running {
         let download: WKDownload
@@ -354,11 +408,13 @@ final class Fetches: ObservableObject {
         running[ObjectIdentifier(download)]?.entry?.destination
     }
 
-    /// Where the file is going, known: its progress is put on it, for the
-    /// Finder's bar under the file and the Dock's Downloads stack.
+    /// Where the file is going, known: its progress is put on the partial
+    /// file, the one in the folder meanwhile, for the Finder's bar under it
+    /// and the Dock's Downloads stack.
     func going(_ download: WKDownload, to file: URL, cancel: @escaping @Sendable () -> Void) {
         guard let item = running[ObjectIdentifier(download)] else { return }
-        if let shown = item.shown, shown.fileURL == file {
+        let partial = FetchEntry.partial(for: file)
+        if let shown = item.shown, shown.fileURL == partial {
             shown.completedUnitCount = download.progress.completedUnitCount
             item.entry?.record(download.progress)
             return
@@ -367,7 +423,7 @@ final class Fetches: ObservableObject {
         let shown = Progress(totalUnitCount: max(1, download.progress.totalUnitCount))
         shown.kind = .file
         shown.fileOperationKind = .downloading
-        shown.fileURL = file
+        shown.fileURL = partial
         shown.isCancellable = true
         // Finder cancellation can complete without a WKDownload delegate
         // failure callback, so its handler owns the same cleanup path.
@@ -488,19 +544,46 @@ final class Fetches: ObservableObject {
         return true
     }
 
-    /// Arrived. The Dock's Downloads stack is told, as Safari tells it, and
-    /// bounces. Successful files move to Loot and no longer remain as entries.
-    func finish(_ download: WKDownload, file: URL?) -> Ended? {
+    /// Arrived. The file takes its own name, and the Dock's Downloads stack
+    /// is told, as Safari tells it, and bounces. Successful files move to
+    /// Loot and no longer remain as entries.
+    func finish(_ download: WKDownload) -> Ended? {
         guard let item = running[ObjectIdentifier(download)] else { return nil }
+        let partial = item.entry?.partial ?? download.progress.fileURL
+        let destination = item.entry?.destination
         if let entry = item.entry { remove(entry) }
         guard let ended = take(download) else { return nil }
+        // After the Finder's bar is gone from the partial file, not before.
+        let file = partial.map { Self.land($0, as: destination ?? $0) }
         if let file {
             DistributedNotificationCenter.default().post(
                 name: Notification.Name("com.apple.DownloadFileFinished"), object: file.path
             )
         }
         settle(succeeded: true)
-        return Ended(owner: ended.owner, announceFailure: false)
+        return Ended(owner: ended.owner, announceFailure: false, file: file)
+    }
+
+    /// The partial file, whole, under its own name: numbered past a file
+    /// put there meanwhile, or another download coming in under it, and
+    /// never over either. Left where it is if it can't be moved.
+    static func land(_ partial: URL, as file: URL) -> URL {
+        guard partial != file else { return partial }
+        var n = 1
+        while true {
+            let candidate = FetchEntry.numbered(file, n)
+            n += 1
+            let theirs = FetchEntry.partial(for: candidate)
+            if theirs != partial, FileManager.default.fileExists(atPath: theirs.path) { continue }
+            do {
+                try FileManager.default.moveItem(at: partial, to: candidate)
+                return candidate
+            } catch CocoaError.fileWriteFileExists {
+                continue
+            } catch {
+                return partial
+            }
+        }
     }
 
     /// Failed or canceled. Preserve resume data and the real WebKit error for
@@ -511,16 +594,18 @@ final class Fetches: ObservableObject {
         // delegate failure may arrive first with nil, so keep tracking until
         // that completion decides whether this was a pause or a discard.
         if item.stopAction != nil { return nil }
+        var resumes: FetchEntry?
         if let entry = item.entry {
             entry.recordTerminal(download.progress)
             entry.failed(error, resumeData: resumeData)
             // A private download has no row to resume it from: what it
             // left half-written goes.
             if !item.listed { entry.discardOwnedPartialFile() }
+            else if entry.resumesOnItsOwn(after: error) { resumes = entry }
         }
         guard let ended = take(download) else { return nil }
         settle(succeeded: false)
-        return Ended(owner: ended.owner, announceFailure: true)
+        return Ended(owner: ended.owner, announceFailure: resumes == nil, resumes: resumes)
     }
 
     /// Destination selection canceled, so remove the provisional row and all
