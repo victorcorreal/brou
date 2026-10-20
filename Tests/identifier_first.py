@@ -51,6 +51,15 @@ PAGES = {
     # The same, marked as an e-mail address: still the page's own list.
     "/recipient": '<form action="/send"><input id="to" type="email" autocomplete="email" role="combobox" '
                   'aria-autocomplete="list"><button>Send</button></form>',
+    # GitHub's search dialog has no input name or id; only its accessible
+    # name and placeholder say what it is. Its issue title is not a login.
+    "/github-search": '<input type="text" role="combobox" aria-label="Search or jump to" '
+                      'placeholder="Search or jump to..."><button>Clear</button>',
+    "/issue-title": '<form><label for="issue-title">Add a title</label>'
+                    '<input id="issue-title" placeholder="Title"><textarea></textarea><button>Create</button></form>',
+    "/labelled-search": '<form><input id="u" aria-label="Search repositories"><button>Go</button></form>',
+    "/placeholder-search": '<form><input id="u" placeholder="Search repositories"><button>Go</button></form>',
+    "/username-off": '<form><input id="u" autocomplete="off" placeholder="Username"><button>Continue</button></form>',
 }
 
 
@@ -164,6 +173,12 @@ def main():
         t.ok("a mail's To box, with its own list, offers nothing", focus(g, "to").get("shown") is False)
         e = open_page(base, "/recipient")
         t.ok("…nor one marked autocomplete=email", focus(e, "to").get("shown") is False)
+        for path in ["/github-search", "/issue-title", "/labelled-search", "/placeholder-search"]:
+            tab = open_page(base, path)
+            go(tab, "document.querySelector('input').focus(); true", 0.8)
+            t.ok(f"{path}: no sign-in suggestions", acc().get("shown") is False)
+        tab = open_page(base, "/username-off")
+        t.ok("autocomplete=off alone does not disable a sign-in", focus(tab, "u").get("shown") is True)
 
         # (d) A name and password on one page, as before.
         d = open_page(base, "/both")
