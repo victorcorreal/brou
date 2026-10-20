@@ -80,18 +80,16 @@ enum Vault {
     /// saved passwords it could never read back. So: the list first, without
     /// secrets, then each secret on its own.
 
-    /// What is kept for one host, without sharing with its parent, sibling
-    /// or child subdomains. Only those items' secrets are read.
-    static func logins(for host: String) -> [Login] {
-        rows(where: [kSecAttrServer as String: host]).compactMap(login(from:))
+    /// The exact host's attributes only: listing accounts never reads secrets.
+    static func kept(for host: String) -> [Kept] {
+        rows(where: [kSecAttrServer as String: host]).compactMap(kept(from:))
     }
 
-    /// Hosts passed by the page or an import share the existing www
-    /// normalization. Other subdomains are separate credential stores.
-    static func logins(matching host: String) -> [Login] {
+    /// Preserve Brou's www alias; other subdomains remain separate.
+    static func kept(matching host: String) -> [Kept] {
         let name = host.lowercased()
         let server = name.hasPrefix("www.") ? String(name.dropFirst(4)) : name
-        return logins(for: server)
+        return kept(for: server)
             .sorted { ($0.used ?? .distantPast) > ($1.used ?? .distantPast) }
     }
 
@@ -206,16 +204,15 @@ enum Vault {
     }
 
     /// One item with its secret, for the paths that hand a password over:
-    /// filling a sign-in in, and telling whether one is already kept.
-    private static func login(from row: [String: Any]) -> Login? {
-        let user = account(of: row)
-        guard let host = row[kSecAttrServer as String] as? String else { return nil }
-        let (used, clear) = noted(row)
-        guard let ref = ref(of: row) else {
-            return secret(host: host, user: user).map { Login(host: host, user: user, password: $0, used: used, clear: clear) }
+    /// Read just the selected item, preserving its migrated keychain reference.
+    static func login(_ kept: Kept) -> Login? {
+        guard let ref = kept.ref else {
+            return secret(host: kept.host, user: kept.user).map {
+                Login(host: kept.host, user: kept.user, password: $0, used: kept.used, clear: kept.clear)
+            }
         }
         guard let (password, now) = secret(ref) else { return nil }
-        return Login(host: host, user: user, password: password, used: used, clear: clear, ref: now)
+        return Login(host: kept.host, user: kept.user, password: password, used: kept.used, clear: kept.clear, ref: now)
     }
 
     /// The account an item is kept under. A sign-in with a password box

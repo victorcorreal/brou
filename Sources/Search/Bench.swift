@@ -1659,7 +1659,7 @@ final class Bench {
             }
             // Test-only view of the same keychain selection used by autofill.
             let offered = (request["offeredFor"] as? String).map {
-                Vault.logins(matching: $0).map(\.user)
+                Vault.kept(matching: $0).map(\.user)
             } ?? []
             answer(["site": browser.passwordSite ?? "", "offered": offered, "rows": browser.shownSites.flatMap(\.logins).map { row -> [String: Any] in
                 ["id": row.id, "host": row.host, "user": row.user, "clear": row.clear,
