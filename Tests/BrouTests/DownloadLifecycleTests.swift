@@ -4,9 +4,9 @@ import Foundation
 import SwiftUI
 import WebKit
 import XCTest
-@testable import Search
+@testable import Brou
 
-private typealias BrowserTab = Search.Tab
+private typealias BrowserTab = Brou.Tab
 
 @MainActor
 final class DownloadLifecycleTests: XCTestCase {

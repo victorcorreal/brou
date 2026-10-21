@@ -8,7 +8,7 @@
 
 Brou brings comfortable reading, a quiet interface and your saved web to Mac and iPhone. Its name means **broth** in Catalan: a few good ingredients, kept simple.
 
-Maintained by [Victor Correal](https://github.com/victorcorreal). Based on [Search by Office Commun](https://github.com/driceroland/Search), with its history and MIT notices preserved. The [iPhone and iPad companion](https://github.com/victorcorreal/search-ios) is maintained alongside this app.
+Maintained by [Victor Correal](https://github.com/victorcorreal). Based on [Search by Office Commun](https://github.com/driceroland/Search), with its history and MIT notices preserved. The [iPhone and iPad companion](https://github.com/victorcorreal/brou-ios) is maintained alongside this app.
 
 ![Brou on Mac showing an original local reading sample](Docs/Images/mac-reading.png)
 
@@ -27,15 +27,15 @@ Brou retains Search's native WebKit foundation, content blocker and Mac extensio
 This first public version is a **source preview**. There is no public notarized Mac download or automatic updater yet. You can build and use the Mac app locally without our Apple account:
 
 ```sh
-git clone https://github.com/victorcorreal/search.git
-cd search
+git clone https://github.com/victorcorreal/brou.git
+cd brou
 ./build.sh release
 open build/Brou.app
 ```
 
 Requires macOS 14 or later and full Xcode with a Swift 6 toolchain; the current source is checked with Xcode 27. Web extensions require macOS 15.4 or later. The build uses the checked-in icon and has no third-party Swift package dependencies. Without a signing certificate it uses ad-hoc signing for local use. A clean unsigned build has no shared iCloud capabilities.
 
-[Build and Apple signing guide](Docs/BUILDING.md) · [iPhone source](https://github.com/victorcorreal/search-ios) · [Verification results and limits](Docs/VERIFICATION.md)
+[Build and Apple signing guide](Docs/BUILDING.md) · [iPhone source](https://github.com/victorcorreal/brou-ios) · [Verification results and limits](Docs/VERIFICATION.md)
 
 ## Continuity, with clear boundaries
 
@@ -56,7 +56,7 @@ Brou does not check or install Office Commun updates. Its inherited updater and 
 
 ## Help shape it
 
-[Report a bug](https://github.com/victorcorreal/search/issues/new/choose) with reproducible steps and synthetic examples. No browsing history, saved passwords or Apple account identifiers are needed. For security reports, use [private reporting](SECURITY.md).
+[Report a bug](https://github.com/victorcorreal/brou/issues/new/choose) with reproducible steps and synthetic examples. No browsing history, saved passwords or Apple account identifiers are needed. For security reports, use [private reporting](SECURITY.md).
 
 ```sh
 python3 Tests/run-ci-tests.py
@@ -70,4 +70,6 @@ Brou is young. External adoption is not yet established. Feedback and public iss
 
 ## License and origin
 
-[MIT](LICENSE). Copyright © 2026 Office Commun and Victor Correal. This is an independently maintained variant, not an Office Commun release. Original authors and commit history remain intact. `CHANGELOG.md` and `ROADMAP.md` retain upstream history; Brou's changes are in [NOTES.md](NOTES.md). The internal target `Search` and compatibility identifiers remain to preserve data and make upstream maintenance practical. [Brand assets and provenance](Brand/README.md).
+[MIT](LICENSE). Copyright © 2026 Office Commun and Victor Correal. This is an independently maintained variant, not an Office Commun release. Original authors and commit history remain intact. `CHANGELOG.md` and `ROADMAP.md` retain upstream history; Brou's changes are in [NOTES.md](NOTES.md). The source package and targets are named Brou. Historical signing, storage and protocol identifiers remain to preserve data. [Brand assets and provenance](Brand/README.md).
+
+[Project naming and compatibility](Docs/NAME_MIGRATION.md).

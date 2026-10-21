@@ -1,5 +1,5 @@
 import XCTest
-@testable import Search
+@testable import Brou
 
 /// The pure parts of the password vault and the updater: which host a login
 /// belongs to, how an export is read, and that an unsigned feed is refused.

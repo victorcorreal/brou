@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 import Darwin
 import AppKit
-@testable import Search
+@testable import Brou
 
 final class ImportFileTests: XCTestCase {
     private static var probeWorld: String?
@@ -507,7 +507,7 @@ private func makeImportTestBrowser() -> Browser {
 }
 
 private func makeChromiumSource(name: String) throws -> (Chromium.Source, URL) {
-    let folder = "SearchTests/\(UUID().uuidString)"
+    let folder = "BrouTests/\(UUID().uuidString)"
     let root = Chromium.base.appendingPathComponent(folder, isDirectory: true)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     return (Chromium.Source(name: name, folder: folder, service: "Test Safe Storage", account: "Test", app: "Test.app"), root)

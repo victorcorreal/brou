@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import Search
+@testable import Brou
 
 @available(macOS 15.4, *)
 final class ExtensionWorkerLinkTests: XCTestCase {

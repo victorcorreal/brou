@@ -1,6 +1,6 @@
 #!/bin/bash
 # Fetches the macOS provisioning profile for cat.correal.search into
-# Provisioning/Search.provisionprofile, where build.sh embeds it.
+# Provisioning/Brou.provisionprofile, where build.sh embeds it.
 #
 # Xcode does the work with the Apple account signed in to it: it registers
 # the App ID, the iCloud container and this Mac if they aren't yet, and makes
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-PROFILE="Search.provisionprofile"
+PROFILE="Brou.provisionprofile"
 
 vigente() {
   [ -f "$PROFILE" ] || return 1
@@ -31,8 +31,8 @@ fi
 
 DERIVED="$(mktemp -d)"
 trap 'rm -rf "${DERIVED:?}"' EXIT
-[ -d SearchProvisioning.xcodeproj ] || xcodegen generate --quiet
-xcodebuild -project SearchProvisioning.xcodeproj -scheme SearchProvisioning -configuration Debug \
+[ -d BrouProvisioning.xcodeproj ] || xcodegen generate --quiet
+xcodebuild -project BrouProvisioning.xcodeproj -scheme BrouProvisioning -configuration Debug \
   -derivedDataPath "$DERIVED" -allowProvisioningUpdates build -quiet
-cp "$DERIVED/Build/Products/Debug/Search.app/Contents/embedded.provisionprofile" "$PROFILE"
+cp "$DERIVED/Build/Products/Debug/Brou.app/Contents/embedded.provisionprofile" "$PROFILE"
 echo "perfil nuevo: $PROFILE (hasta $(security cms -D -i "$PROFILE" | plutil -extract ExpirationDate raw -o - -))"

@@ -1,7 +1,7 @@
 import Foundation
 import JavaScriptCore
 import XCTest
-@testable import Search
+@testable import Brou
 
 @available(macOS 15.4, *)
 @MainActor

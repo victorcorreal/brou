@@ -13,7 +13,7 @@
             </parameter>
             <result type="integer" description="The count."/>
         </command>
-        <class name="application" code="capp" description="Search.">
+        <class name="application" code="capp" description="Brou.">
             <cocoa class="NSApplication"/>
             <element type="window" access="r">
                 <cocoa key="orderedWindows"/>

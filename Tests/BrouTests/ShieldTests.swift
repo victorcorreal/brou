@@ -1,6 +1,6 @@
 import WebKit
 import XCTest
-@testable import Search
+@testable import Brou
 
 @MainActor
 final class ShieldTests: XCTestCase {
