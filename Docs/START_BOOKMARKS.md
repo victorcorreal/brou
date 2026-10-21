@@ -15,7 +15,7 @@ The UI reads the existing bookmark model. There is no second collection, migrati
 - Signed Mac Release build and iPhone Release archive completed. iPhone bundle ID remains `cat.correal.search`; final menu revision build: `1792582963`.
 - Mac: `Tests/start_bookmarks.py` checks cold launch, retention of previous pages, reuse of the start tab, bookmark navigation, relaunch, and unchanged bookmark bytes, folder tree and order. All 12 checks passed on the final Mac build. It runs with synthetic data in an isolated test world.
 - Mac UI: confirmed the minimal start page, focused address field, blue button at the bottom right and bookmark popover. Bookmark navigation passed the model probe; a manual destination click from the final popover remains to be checked.
-- iPhone: physical UI confirmation of the final automatic-focus and bottom-right menu revision remains pending.
+- iPhone: Victor confirmed on the physical device that opening Brou and a new tab places the cursor in the address field, opens the keyboard, and shows the general menu at the bottom right (build `1792582963`, 21 October 2026). This confirmation does not cover opening a bookmark or iCloud synchronization.
 
 The simulator did not provide a conclusive behavioral check. Its test fixtures were restored. iCloud synchronization needs a signed physical-device test and was not revalidated here.
 
