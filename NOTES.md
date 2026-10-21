@@ -1,3 +1,5 @@
+Brou 1.1.0 source preview — 21 October 2026. Public build, privacy and sync guides, contribution/security reporting and CI; CloudKit diagnostics marked private and packaging copyright corrected. See Docs/RELEASE_1.1.0.md for the full scope and verification limits. This is a source release, without a public signed binary or automatic updater.
+
 Brou — mantenimiento de upstream — 21 de octubre de 2026
 
 Las sugerencias de cuentas ya no leen todas las contraseñas al abrirse y mantienen cada subdominio separado. Se afinan la detección de campos de acceso, los límites del bloqueador, los marcadores abiertos desde pestañas fijadas, las ventanas de acceso asíncronas, las claves de seguridad la comunicación con extensiones y los límites de lectura de las importaciones. Historial, autores e identidades de datos conservados. Alcance, fuentes y verificación en Docs/UPSTREAM_INTEGRATION.md.

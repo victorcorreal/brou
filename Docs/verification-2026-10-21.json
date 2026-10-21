@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-21",
+  "mac_swift": {
+    "executed": 122,
+    "passed": 121,
+    "skipped": 1,
+    "download_cases_isolated": 10
+  },
+  "iphone_synthetic": {
+    "vault_passed": 6,
+    "web_passed": 13,
+    "top_colour_passed": 7
+  },
+  "physical_devices": {
+    "bookmarks_create_rename_delete": true,
+    "keychain_save_read_delete_both_directions": true,
+    "native_iphone_cases_passed": 3,
+    "synthetic_records_removed": true,
+    "parent_revisions": [
+      "3a61c797",
+      "0c6bc6bb"
+    ]
+  },
+  "external_adoption_established": false,
+  "binary_distribution": "not released"
+}

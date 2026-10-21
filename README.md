@@ -1,79 +1,73 @@
-# Brou
+<div align="center">
+  <img src="Brand/Brou.png" width="104" alt="Brou — white steam on black">
+  <h1>Brou</h1>
+  <p>A little room to read.</p>
+  <p>A lightweight WebKit browser for Mac, with an iPhone companion.</p>
+  <p><a href="#try-brou">Build</a> · <a href="Docs/SYNC.md">Continuity</a> · <a href="Docs/PRIVACY.md">Privacy</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
+</div>
 
-A small WebKit browser for Mac, focused on comfortable reading, privacy and continuity with iPhone. Maintained by Victor Correal. Based on [Search by Office Commun](https://github.com/driceroland/Search), under the MIT license.
+Brou brings comfortable reading, a quiet interface and your saved web to Mac and iPhone. Its name means **broth** in Catalan: a few good ingredients, kept simple.
 
-<img src="Brand/Brou.png" width="112" alt="Brou: a single white wisp of steam on black">
+Maintained by [Victor Correal](https://github.com/victorcorreal). Based on [Search by Office Commun](https://github.com/driceroland/Search), with its history and MIT notices preserved. The [iPhone and iPad companion](https://github.com/victorcorreal/search-ios) is maintained alongside this app.
 
-Brou means **broth** in Catalan. Its minimal icon is a single white wisp of steam on black. Brou 1.1.0 introduces this identity on Mac and iPhone.
+![Brou on Mac showing an original local reading sample](Docs/Images/mac-reading.png)
 
-## This version
+*Actual app rendering with a synthetic local page and disposable data.*
 
-- A minimal start page and new tabs with a small blue bookmark button at the bottom right. Click it to open your existing bookmark folders and links.
-- Dark Pages and a text-only reading option.
-- Bookmarks shared with the companion iPhone app through CloudKit.
-- Passwords shared between our apps through an iCloud Keychain access group.
-- Password suggestions and per-page management limited to the exact host, keeping CMS, development and public-site accounts separate. An explicit action opens the full vault.
-- Fixes for download completion, resuming and sign-in forms.
-- The tabs, spaces, bookmarks, reading mode, content blocker and WebKit extension support inherited from Search.
+## Made for
 
-These are the current capabilities, not promises of a new reading library or session sync. History and open tabs remain local. A cold launch selects an empty start tab while keeping the previous session’s pages available; an existing empty tab is reused. Returning to an already running app leaves the current page in place. An extension-selected custom new-tab page keeps its own behavior. CloudKit currently uses **Development**, with changes fetched on launch, foreground activation and periodically. This is a development distribution, not a public notarized release.
+- **Reading without clutter.** Dark Pages and text-only reading, alongside the reader inherited from Search.
+- **Keeping useful pages close.** A minimal start page with bookmarks one click away. Spaces, tabs and bookmark folders on Mac.
+- **Continuing on iPhone.** CloudKit bookmarks and a shared iCloud Keychain group for Brou credentials. Suggestions stay within the current host, so CMS, development and public-site accounts stay separate.
 
-## Build on Mac
+Brou retains Search's native WebKit foundation, content blocker and Mac extension support. It adds its own continuity, reading refinements, password scoping and maintenance fixes. See [Brou 1.1.0](Docs/RELEASE_1.1.0.md) for the changes and [upstream integration](Docs/UPSTREAM_INTEGRATION.md) for attribution.
 
-Requires macOS 14 or later and Xcode with the Swift 6 toolchain. Extension support requires macOS 15.4 or later.
+## Try Brou
+
+This first public version is a **source preview**. There is no public notarized Mac download or automatic updater yet. You can build and use the Mac app locally without our Apple account:
 
 ```sh
-swift build
+git clone https://github.com/victorcorreal/search.git
+cd search
 ./build.sh release
 open build/Brou.app
 ```
 
-The Swift package and source target retain the internal name `Search` to keep upstream updates manageable. The packaged application and executable are named **Brou**. The icon is generated locally from the checked-in master artwork; no image service is needed to build.
+Requires macOS 14 or later and full Xcode with a Swift 6 toolchain; the current source is checked with Xcode 27. Web extensions require macOS 15.4 or later. The build uses the checked-in icon and has no third-party Swift package dependencies. Without a signing certificate it uses ad-hoc signing for local use. A clean unsigned build has no shared iCloud capabilities.
 
-Without a signing identity, the build is ad-hoc signed and does not have our iCloud or shared-keychain capabilities. The developer-signed version uses the existing profile described in [Provisioning/README.md](Provisioning/README.md). Using another Apple Developer account requires your own App ID, CloudKit container, keychain group and profiles in both apps. Our profiles, signing certificates and personal data are not part of the repository.
+[Build and Apple signing guide](Docs/BUILDING.md) · [iPhone source](https://github.com/victorcorreal/search-ios) · [Verification results and limits](Docs/VERIFICATION.md)
 
-## Updating an existing installation
+## Continuity, with clear boundaries
 
-Install Brou over your existing variant without deleting its data. The public name changes; the following compatibility identities deliberately do not:
-
-| Purpose | Retained identity |
+| Shared by the paired, correctly signed apps | Kept on each device |
 | --- | --- |
-| Bundle identifier | `cat.correal.search` |
-| CloudKit container | `iCloud.cat.correal.search` |
-| Keychain group | `E653G759EN.cat.correal.search` |
-| CloudKit bookmark zone | `Search` |
-| Password label | `Search` |
-| Local data folder | `~/Library/Application Support/Search/` |
+| Bookmarks and bookmark folders via CloudKit | Open tabs, session and history |
+| Brou credentials via iCloud Keychain | Cookies and website logins |
 
-Cookies, sessions, preferences and stored keys keep their existing identities. Test-world names, scripting command codes, script isolation worlds and internal extension identifiers remain compatible as well. A change of name alone does not migrate or delete records. Keep the same signing team to preserve access.
+Both devices must use the same iCloud account and compatible signing identities. The current maintainer builds use **CloudKit Development**, fetching on launch, foreground activation and every five minutes. They are not a general iCloud service for unsigned builds. Passwords belong to Brou's own access group; they are separate from Apple's Passwords app. Read [how sync works](Docs/SYNC.md) before configuring your own Apple team.
 
-## Updates and distribution
+Cold launch selects an empty start tab while preserving previous pages. Returning to the running app keeps the current page. New-tab requests reuse the existing empty start tab; an extension that owns the new-tab page keeps its own behavior.
 
-Brou does **not** check or install Office Commun releases. Its inherited updater is disabled outside explicitly configured isolated tests. Automatic update controls are hidden until Brou has its own authenticated release channel.
+## Privacy and updates
 
-`./build.sh release dmg` can make a local `Brou.dmg` and `Brou.zip`. It does not generate an appcast unless `SEARCH_DOWNLOAD_URL` is explicitly set; that does not enable the app's updater. The upstream `publish.sh` and `tap.sh` are disabled. A public signed download still needs a Developer ID certificate, a suitable profile, notarization and a Brou release channel. Publishing source is a separate step.
+Brou adds no usage analytics or maintainer telemetry. Websites and the selected search engine still make network requests; the content blocker is not a promise of anonymity. iCloud is optional in a properly provisioned build. The inherited AI add-on is disabled. See the [privacy and network notes](Docs/PRIVACY.md).
 
-Feedback goes to [this variant's issue tracker](https://github.com/victorcorreal/search/issues), not Office Commun. The repositories remain private while this version is reviewed.
+Brou does not check or install Office Commun updates. Its inherited updater and publication scripts are disabled for normal use. Source publication is separate from Developer ID signing, notarization and a future Brou update channel. Never install a maintainer development profile from an issue or share your signing keys.
 
-## Verification and contribution
+## Help shape it
+
+[Report a bug](https://github.com/victorcorreal/search/issues/new/choose) with reproducible steps and synthetic examples. No browsing history, saved passwords or Apple account identifiers are needed. For security reports, use [private reporting](SECURITY.md).
 
 ```sh
-swift test --skip DownloadLifecycleTests
-python3 Tests/dark_pages.py
+python3 Tests/run-ci-tests.py
+Tests/AddressRegression/run.sh
+node Tests/popup_gesture_script.js
 ```
 
-UI probes use `SEARCH_PROBE` and isolated data. The download lifecycle cases must run in separate processes; `python3 Tests/run-ci-tests.py` runs the complete Swift suite with that isolation. `./bench` keeps its existing socket location and protocol; its name is a developer tool, not a separate distribution.
+The Swift runner isolates all ten WebKit download journeys in separate processes. [CONTRIBUTING.md](CONTRIBUTING.md) explains additional probes, test isolation and upstream maintenance.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and [Brand/README.md](Brand/README.md). The upstream `CHANGELOG.md` preserves Search's history; Brou's changes are recorded separately in `NOTES.md` and the 1.1.0 in-app notes.
+Brou is young. External adoption is not yet established. Feedback and public issues are the current evidence of use; upstream Search's stars and users belong to Search.
 
-## Origin and license
+## License and origin
 
-Brou is an independently maintained variant of Search by Office Commun. The original Git history, MIT license and copyright notices are preserved. CloudKit sync, shared keychain integration, Dark Pages, text-only reading and the fixes described above were developed in this variant before the Brou rename. Their original commits and pull requests remain in the history.
-
-The Brou name and icon replace Search's product branding. This distribution is not an Office Commun release. See [LICENSE](LICENSE).
-
-[Password host-scope verification](Docs/PASSWORD_HOST_SCOPE.md).
-
-[Start-page bookmarks and verification](Docs/START_BOOKMARKS.md).
-
-[Integración de upstream y pruebas](Docs/UPSTREAM_INTEGRATION.md).
+[MIT](LICENSE). Copyright © 2026 Office Commun and Victor Correal. This is an independently maintained variant, not an Office Commun release. Original authors and commit history remain intact. `CHANGELOG.md` and `ROADMAP.md` retain upstream history; Brou's changes are in [NOTES.md](NOTES.md). The internal target `Search` and compatibility identifiers remain to preserve data and make upstream maintenance practical. [Brand assets and provenance](Brand/README.md).

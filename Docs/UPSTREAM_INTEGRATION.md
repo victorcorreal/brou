@@ -69,3 +69,7 @@ La compilación Release de desarrollo no es una descarga notarizada. Las pruebas
 ## Próximas actualizaciones
 
 Mantener `upstream` como remoto de lectura. Revisar las releases para actualizaciones amplias y seleccionar correcciones urgentes en ramas separadas, con referencia al origen, conflictos documentados y pruebas afectadas. No hacer merge indiscriminado de nuevas funciones. Volver a comprobar datos persistentes, credenciales, sesiones y descargas antes de distribuir.
+
+## Later device verification
+
+The basic physical Mac/iPhone journeys were subsequently checked on 21 October 2026; see [VERIFICATION.md](VERIFICATION.md). Earlier statements above about untested cross-device sync describe the integration stage. Offline/conflict/account-switch coverage remains pending.

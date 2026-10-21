@@ -1,0 +1,36 @@
+name: Bug report
+description: A reproducible problem in Brou
+body:
+  - type: markdown
+    attributes:
+      value: "Use synthetic data. Never attach passwords, cookies, browsing history or signing files. For vulnerabilities see SECURITY.md."
+  - type: input
+    id: version
+    attributes:
+      label: Brou version / commit and OS version
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include a minimal public or local example with no personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted screenshots or relevant diagnostics
+      description: Optional. Inspect files before sharing.
