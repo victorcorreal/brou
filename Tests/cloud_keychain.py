@@ -171,10 +171,15 @@ try:
     # noted, and it stays https, since moving it to http would make it the
     # same item as the other.
     tab = login_page()
+    diary = Path(sv.SUPPORT) / "keychain-events.log"
+    before_submit = diary.read_text() if diary.exists() else ""
     sv.cmd({"do": "type", "id": tab, "selector": "#user", "text": "cris"})
     sv.cmd({"do": "type", "id": tab, "selector": "#pass", "text": "cuatro"})
     sv.cmd({"do": "submit", "id": tab, "selector": "#pass"})
     time.sleep(3)
+    submitted_events = (diary.read_text() if diary.exists() else "")[len(before_submit):]
+    t.ok("submission reads only this user's two candidate secrets",
+         submitted_events.count("data=true") == 2, submitted_events)
     both = cris()
     t.ok("a sign-in notes the use on the item whose password it was",
          len(both) == 2 and both[1]["used"] > 0 and not both[1]["clear"], both)
