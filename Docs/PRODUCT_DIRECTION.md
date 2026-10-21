@@ -1,6 +1,6 @@
 # Proposed direction for Brou
 
-Status: product proposal for review; these capabilities are not implemented by the icon change.
+Status: parked at Victor's request on 21 October 2026. Current priority: immediate access to existing bookmarks. The reading-library, continuity and temporary-mode proposals below are not the current implementation scope.
 
 Brou is a small browser for reading at your own pace and continuing between Mac and iPhone. The audience is people who collect articles, news and documentation during the day and want to finish them later. The current baseline is an inherited reader, this variant's Dark Pages/text-only mode, synced bookmarks and shared keychain credentials. History and open tabs are local.
 

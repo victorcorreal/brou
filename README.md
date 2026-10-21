@@ -8,6 +8,7 @@ Brou means **broth** in Catalan. Its minimal icon is a single white wisp of stea
 
 ## This version
 
+- A minimal start page and new tabs with a small blue bookmark button at the bottom right. Click it to open your existing bookmark folders and links.
 - Dark Pages and a text-only reading option.
 - Bookmarks shared with the companion iPhone app through CloudKit.
 - Passwords shared between our apps through an iCloud Keychain access group.
@@ -15,7 +16,7 @@ Brou means **broth** in Catalan. Its minimal icon is a single white wisp of stea
 - Fixes for download completion, resuming and sign-in forms.
 - The tabs, spaces, bookmarks, reading mode, content blocker and WebKit extension support inherited from Search.
 
-These are the current capabilities, not promises of a new reading library or session sync. History and open tabs remain local. CloudKit currently uses **Development**, with changes fetched on launch, foreground activation and periodically. This is a development distribution, not a public notarized release.
+These are the current capabilities, not promises of a new reading library or session sync. History and open tabs remain local. A cold launch selects an empty start tab while keeping the previous session’s pages available; an existing empty tab is reused. Returning to an already running app leaves the current page in place. An extension-selected custom new-tab page keeps its own behavior. CloudKit currently uses **Development**, with changes fetched on launch, foreground activation and periodically. This is a development distribution, not a public notarized release.
 
 ## Build on Mac
 
@@ -72,3 +73,5 @@ Brou is an independently maintained variant of Search by Office Commun. The orig
 The Brou name and icon replace Search's product branding. This distribution is not an Office Commun release. See [LICENSE](LICENSE).
 
 [Password host-scope verification](Docs/PASSWORD_HOST_SCOPE.md).
+
+[Start-page bookmarks and verification](Docs/START_BOOKMARKS.md).
