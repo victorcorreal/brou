@@ -75,3 +75,5 @@ The Brou name and icon replace Search's product branding. This distribution is n
 [Password host-scope verification](Docs/PASSWORD_HOST_SCOPE.md).
 
 [Start-page bookmarks and verification](Docs/START_BOOKMARKS.md).
+
+[Integración de upstream y pruebas](Docs/UPSTREAM_INTEGRATION.md).
