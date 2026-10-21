@@ -11,6 +11,10 @@
 # goes into the folder's intel/, where Intel builds of Search look.
 set -euo pipefail
 
+# Brou does not publish through Office Commun’s infrastructure.
+echo "Brou distribution is not configured; this upstream publishing script is disabled." >&2
+exit 1
+
 cd "$(dirname "$0")"
 [ $# -eq 1 ] || { echo "usage: ./publish.sh <folder>" >&2; exit 1; }
 ARCH="${SEARCH_ARCH:-arm64}"

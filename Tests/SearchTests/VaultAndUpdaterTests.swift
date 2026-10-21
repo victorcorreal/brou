@@ -6,6 +6,18 @@ import XCTest
 /// Nothing here touches the keychain: every CSV row below is one that is
 /// skipped, so nothing is ever saved.
 final class VaultAndUpdaterTests: XCTestCase {
+    @MainActor func testUnconfiguredBrouUpdatesCompleteWithoutStartingAFetch() {
+        guard ProcessInfo.processInfo.environment["SEARCH_FEED"] == nil else { return }
+        XCTAssertFalse(Updater.enabled)
+        var completed = false
+        Updater.shared.check { release in
+            XCTAssertNil(release)
+            completed = true
+        }
+        XCTAssertTrue(completed, "A disabled updater completes immediately instead of scheduling a network fetch")
+        XCTAssertFalse(Updater.shared.checking)
+    }
+
     func testHostIsTheSiteWithoutWWW() {
         XCTAssertEqual(Vault.host(of: "https://www.example.com/login?next=/"), "example.com")
         XCTAssertEqual(Vault.host(of: "  Example.COM  "), "example.com")

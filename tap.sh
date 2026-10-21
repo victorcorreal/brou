@@ -10,6 +10,10 @@
 # Search-Intel.dmg for Intel attached); it reads the version from VERSION.
 set -euo pipefail
 
+# Brou does not publish through Office Commun’s infrastructure.
+echo "Brou distribution is not configured; this upstream publishing script is disabled." >&2
+exit 1
+
 cd "$(dirname "$0")"
 VERSION="$(tr -d '[:space:]' < VERSION)"
 BASE="https://github.com/driceroland/Search/releases/download/v$VERSION"
