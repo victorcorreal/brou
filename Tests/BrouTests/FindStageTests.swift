@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import Search
+@testable import Brou
 
 @MainActor
 final class FindStageTests: XCTestCase {

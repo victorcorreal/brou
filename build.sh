@@ -70,7 +70,7 @@ MINIMUM="14.0"
 SWIFTFLAGS=(-c "$CONFIG" --arch "$ARCH")
 [ "$CONFIG" = "release" ] && SWIFTFLAGS+=(-Xswiftc -Osize)
 swift build "${SWIFTFLAGS[@]}"
-BINARY="$(swift build "${SWIFTFLAGS[@]}" --show-bin-path)/Search"
+BINARY="$(swift build "${SWIFTFLAGS[@]}" --show-bin-path)/Brou"
 [ "$(lipo -archs "$BINARY")" = "$ARCH" ] || { echo "$BINARY is not a $ARCH binary" >&2; exit 1; }
 
 rm -rf "$APP"
@@ -78,14 +78,14 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY" "$APP/Contents/MacOS/$NAME"
 # The AppleScript dictionary (Scripting.swift): read-only, tabs' addresses
 # and titles. The plist below points to it.
-cp Search.sdef "$APP/Contents/Resources/"
+cp Brou.sdef "$APP/Contents/Resources/"
 
 # Symbols stay out of the app. The linker leaves every function's name and a
 # map back to the source in the binary — 15,000 entries, more than half of
 # what the app weighed (6.5 MB of binary, 2.7 without them), and nothing the
 # app reads while it runs. They are kept beside the build instead, as a dSYM
 # that turns the addresses in a crash report back into names (Console, or
-# atos -o build/Brou.app.dSYM/Contents/Resources/DWARF/Search).
+# atos -o build/Brou.app.dSYM/Contents/Resources/DWARF/Brou).
 if [ "$CONFIG" = "release" ]; then
   rm -rf "$APP.dSYM"
   dsymutil "$BINARY" -o "$APP.dSYM" 2>/dev/null || echo "no dSYM this time" >&2
@@ -147,7 +147,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSAppleScriptEnabled</key><true/>
-  <key>OSAScriptingDefinition</key><string>Search.sdef</string>
+  <key>OSAScriptingDefinition</key><string>Brou.sdef</string>
   <!-- Owning http and https is what sends a link clicked in Mail here.
        Appearing in Desktop & Dock → Default web browser also needs the
        XHTML document type below. -->
@@ -206,16 +206,16 @@ IDENTITY="${SEARCH_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/
 # Developer ID provisioning profile that carries it. With the profile next to
 # this script, both go in; without it, the app is signed as before, because
 # a restricted entitlement with no profile behind it is an app that won't open.
-ENTITLEMENTS="Search.entitlements"
-if [ -f "Search.provisionprofile" ]; then
-  cp "Search.provisionprofile" "$APP/Contents/embedded.provisionprofile"
-  ENTITLEMENTS="Search.passkeys.entitlements"
+ENTITLEMENTS="Brou.entitlements"
+if [ -f "Brou.provisionprofile" ]; then
+  cp "Brou.provisionprofile" "$APP/Contents/embedded.provisionprofile"
+  ENTITLEMENTS="Brou.passkeys.entitlements"
   echo "passkeys: profile embedded"
 fi
 # Victor's build: the profile Provisioning/refresh.sh fetched, and the
 # entitlements it allows — iCloud, and the keychain group the iPhone app shares.
-if [ -f "Provisioning/Search.provisionprofile" ]; then
-  cp "Provisioning/Search.provisionprofile" "$APP/Contents/embedded.provisionprofile"
+if [ -f "Provisioning/Brou.provisionprofile" ]; then
+  cp "Provisioning/Brou.provisionprofile" "$APP/Contents/embedded.provisionprofile"
   ENTITLEMENTS="Provisioning/App.entitlements"
   echo "icloud: profile embedded"
 fi

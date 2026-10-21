@@ -268,11 +268,11 @@ final class Links: NSObject, NSApplicationDelegate {
     /// ⌘⇧F, the Help menu, and the About page all come here: a draft, in
     /// Open this variant's issue form. The person writes and submits the report.
     static func writeFeedback() {
-        NSWorkspace.shared.open(URL(string: "https://github.com/victorcorreal/search/issues/new")!)
+        NSWorkspace.shared.open(URL(string: "https://github.com/victorcorreal/brou/issues/new")!)
     }
 
     static func openProject() {
-        NSWorkspace.shared.open(URL(string: "https://github.com/victorcorreal/search")!)
+        NSWorkspace.shared.open(URL(string: "https://github.com/victorcorreal/brou")!)
     }
 
     // MARK: - being the browser

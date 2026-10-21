@@ -1,5 +1,5 @@
 import XCTest
-@testable import Search
+@testable import Brou
 
 /// The list as records and back (see CloudSync.swift): nothing lost, nothing
 /// out of order, whatever two devices did at once.

@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import Search
+@testable import Brou
 
 final class BrowserImportBoundaryTests: XCTestCase {
     func testProfilesAndFilesCannotFollowLinksOutsideRoot() throws {

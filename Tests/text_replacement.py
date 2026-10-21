@@ -84,7 +84,7 @@ def make_copy():
     plist = str(COPY / "Contents" / "Info.plist")
     subprocess.run(["plutil", "-replace", "CFBundleIdentifier", "-string", ID, plist], check=True)
     (COPY / "Contents" / "embedded.provisionprofile").unlink(missing_ok=True)
-    subprocess.run(["codesign", "--force", "--deep", "-s", "-", "--entitlements", str(ROOT / "Search.entitlements"), str(COPY)],
+    subprocess.run(["codesign", "--force", "--deep", "-s", "-", "--entitlements", str(ROOT / "Brou.entitlements"), str(COPY)],
                    check=True, capture_output=True)
 
 def cmd(req):

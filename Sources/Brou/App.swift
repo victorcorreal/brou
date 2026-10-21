@@ -6,7 +6,7 @@ import Combine
 // there is nothing else to learn and nothing else to press.
 
 @main
-struct SearchApp: App {
+struct BrouApp: App {
     /// The window in front's browser, for the menus (see Windows.swift).
     @StateObject private var front = Front.shared
     /// Your own keys (Settings › Shortcuts): the menus are drawn again when
@@ -1500,7 +1500,7 @@ private struct TabImmersionWatch: View {
 /// The update command, as the updater stands: Check for Updates…, Install
 /// Update when installing on its own is off, Download Update… when it
 /// couldn't install itself, Restart to Update once a newer build is in place.
-/// Its own view, so only the updater's changes redraw it (see SearchApp.body).
+/// Its own view, so only the updater's changes redraw it (see BrouApp.body).
 private struct UpdateMenuItem: View {
     @ObservedObject private var updater = Updater.shared
 
