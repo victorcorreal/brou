@@ -1650,7 +1650,11 @@ final class Bench {
                 guard let row = browser.saved.first(where: { $0.id == id }) else { answer(["error": "no row \(id)"]); return }
                 browser.forget(row)
             }
-            answer(["site": browser.passwordSite ?? "", "rows": browser.shownSites.flatMap(\.logins).map { row -> [String: Any] in
+            // Test-only view of the same keychain selection used by autofill.
+            let offered = (request["offeredFor"] as? String).map {
+                Vault.logins(matching: $0).map(\.user)
+            } ?? []
+            answer(["site": browser.passwordSite ?? "", "offered": offered, "rows": browser.shownSites.flatMap(\.logins).map { row -> [String: Any] in
                 ["id": row.id, "host": row.host, "user": row.user, "clear": row.clear,
                  "used": row.used?.timeIntervalSince1970 ?? 0, "saved": row.saved?.timeIntervalSince1970 ?? 0,
                  "old": row.ref?.old ?? false, "password": Vault.secret(of: row) ?? ""]

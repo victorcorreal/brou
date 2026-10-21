@@ -80,23 +80,17 @@ enum Vault {
     /// saved passwords it could never read back. So: the list first, without
     /// secrets, then each secret on its own.
 
-    /// What is kept for a host, exactly. See `logins(matching:)` for the
-    /// version that also looks across a site's subdomains.
+    /// What is kept for one host, without sharing with its parent, sibling
+    /// or child subdomains. Only those items' secrets are read.
     static func logins(for host: String) -> [Login] {
         rows(where: [kSecAttrServer as String: host]).compactMap(login(from:))
     }
 
-    /// The keychain matches a server name exactly, and a sign-in rarely lives
-    /// on the page you saved it from — accounts.example.com asks, and the
-    /// password was kept for example.com. So the site is matched as a site:
-    /// the host first, then anything sharing its registrable domain.
+    /// Hosts passed by the page or an import share the existing www
+    /// normalization. Other subdomains are separate credential stores.
     static func logins(matching host: String) -> [Login] {
-        let domain = registrable(host)
-        let exact = logins(for: host)
-        let wider = rows(where: [:])
-            .filter { ($0[kSecAttrServer as String] as? String).map { $0 != host && registrable($0) == domain } ?? false }
-            .compactMap(login(from:))
-        return (exact + wider).sorted { ($0.used ?? .distantPast) > ($1.used ?? .distantPast) }
+        logins(for: self.host(of: host))
+            .sorted { ($0.used ?? .distantPast) > ($1.used ?? .distantPast) }
     }
 
     /// Everything this app holds, as the list needs it: no secrets. Each one

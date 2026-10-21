@@ -11,7 +11,8 @@ Brou means **broth** in Catalan. Its own icon suggests a bowl, steam and a lower
 - Dark Pages and a text-only reading option.
 - Bookmarks shared with the companion iPhone app through CloudKit.
 - Passwords shared between our apps through an iCloud Keychain access group.
-- Per-site password management and fixes for download completion, resuming and sign-in forms.
+- Password suggestions and per-page management limited to the exact host, keeping CMS, development and public-site accounts separate. An explicit action opens the full vault.
+- Fixes for download completion, resuming and sign-in forms.
 - The tabs, spaces, bookmarks, reading mode, content blocker and WebKit extension support inherited from Search.
 
 These are the current capabilities, not promises of a new reading library or session sync. History and open tabs remain local. CloudKit currently uses **Development**, with changes fetched on launch, foreground activation and periodically. This is a development distribution, not a public notarized release.
@@ -69,3 +70,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and [Brand/RE
 Brou is an independently maintained variant of Search by Office Commun. The original Git history, MIT license and copyright notices are preserved. CloudKit sync, shared keychain integration, Dark Pages, text-only reading and the fixes described above were developed in this variant before the Brou rename. Their original commits and pull requests remain in the history.
 
 The Brou name and icon replace Search's product branding. This distribution is not an Office Commun release. See [LICENSE](LICENSE).
+
+[Password host-scope verification](Docs/PASSWORD_HOST_SCOPE.md).
