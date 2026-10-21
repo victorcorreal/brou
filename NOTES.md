@@ -2,6 +2,8 @@ Brou 1.1.0 — 21 October 2026
 
 The Mac and iPhone apps now share the Brou name and their own cream-and-orange bowl/steam icon. Bundle IDs, iCloud, keychain labels, sessions and local storage identities are unchanged. Updates from Office Commun are disabled for Brou while its own distribution is prepared.
 
+Password-host correction (development build): suggestions and the page-specific password panel now keep each subdomain separate. A CMS no longer offers passwords from the public site or development server. A host without a saved account has no fallback suggestions; the explicit full-vault view remains available. No stored password is moved or removed.
+
 Based on Search 1.0.5 by Office Commun (MIT), with this variant's earlier iCloud, keychain, reading, download and form improvements. The upstream CHANGELOG.md and previous commits retain the original release history.
 
 ## Earlier Search release notes — Office Commun

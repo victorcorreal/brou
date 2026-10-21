@@ -140,7 +140,7 @@ struct PasswordsPanel: View {
             .help("Show every site")
             .onHover { hovering = $0 }
             .animation(Motion.quick, value: hovering)
-            // Its whole name: a registrable domain is short, and the field
+            // Its whole host name; the field
             // beside it gives way.
             .fixedSize()
         }

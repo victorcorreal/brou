@@ -811,7 +811,7 @@ final class Browser: NSObject, ObservableObject {
         guard let list = suggesting, Date().timeIntervalSince(list.shown) > 0.5 else { return }
         suggesting = nil
         hunting = ""
-        passwordSite = Vault.registrable(list.host)
+        passwordSite = list.host
         managing = true
     }
 
@@ -823,9 +823,8 @@ final class Browser: NSObject, ObservableObject {
     /// The list, without secrets: see `Kept` and `Vault.all()`.
     @Published private(set) var saved: [Kept] = []
     @Published var hunting = ""
-    /// The one site the panel shows, by registrable domain: example.com
-    /// takes in www.example.com and accounts.example.com. Nil for all of
-    /// them. Apart from `hunting`, which also matches the account's name:
+    /// The exact page host the panel shows. Nil for all of them.
+    /// Apart from `hunting`, which also matches the account's name:
     /// "example" there finds every site where you are someone@example.com.
     @Published var passwordSite: String?
 
@@ -838,7 +837,7 @@ final class Browser: NSObject, ObservableObject {
     /// what has been typed.
     var shownSites: [SiteRow] {
         let needle = hunting.trimmingCharacters(in: .whitespaces).lowercased()
-        let pool = passwordSite.map { site in saved.filter { Vault.registrable($0.host) == site } } ?? saved
+        let pool = passwordSite.map { site in saved.filter { $0.host == site } } ?? saved
         let rows = needle.isEmpty ? pool : pool.filter {
             $0.host.contains(needle) || $0.user.lowercased().contains(needle)
         }
