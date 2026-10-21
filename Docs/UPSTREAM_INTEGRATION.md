@@ -52,6 +52,18 @@ Los probes usan mundos aislados y páginas locales. Ejecutarlos de uno en uno. L
 
 La suite Swift completa ejecuta 122 casos: 121 pasan y uno se omite en macOS 27 por el requisito previo de WebKit descrito arriba. Los diez casos de descargas se ejecutan en procesos separados y pasan sin reintentos. La prueba independiente de direcciones y la del listener de gestos también pasan.
 
+Los recorridos del build Release firmado 1.1.0 (202610211441), ejecutados de uno en uno, también pasan:
+
+| Prueba aislada | Resultado |
+| --- | --- |
+| `passwords_site.py` | 23 pasan |
+| `cloud_keychain.py` | 17 pasan |
+| `identifier_first.py` | 26 pasan |
+| `popups.py` | 10 pasan |
+| `one_click_one_tab.py` | 17 pasan |
+| `bookmark_new_tab.py` | 3 pasan |
+| `start_bookmarks.py` | 12 pasan |
+
 La compilación Release de desarrollo no es una descarga notarizada. Las pruebas locales de llavero no acreditan sincronización real Mac–iPhone ni conflictos de iCloud. No se han cambiado entitlements, identificadores, contenedores ni el entorno Development. No se ha verificado todavía el menú contextual de ventanas después de mantenerlo abierto más de cinco segundos, ni el funcionamiento con una clave física o con cada extensión real. Los tests cubren las regresiones de código, no esas combinaciones completas.
 
 ## Próximas actualizaciones
