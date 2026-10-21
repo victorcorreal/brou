@@ -3882,9 +3882,21 @@ final class Browser: NSObject, ObservableObject {
             // saving itself.
             if #available(macOS 15.4, *), Extensions.shared.passwordSavingTakenBy != nil { return }
             let known = Vault.kept(for: host)
-            // Nothing to ask about one that is already known. Only that
-            // account's secret is read, not every one kept for the site.
-            if var same = known.first(where: { $0.user == user && $0.clear == clear }).flatMap(Vault.login), same.password == password {
+            // Only this user's items are candidates. Prefer this scheme,
+            // but a manually entered password may belong to its other item.
+            // Keep that persistent reference rather than offering to replace
+            // the different password already saved for this scheme.
+            let candidates = known.filter { $0.user == user }.sorted {
+                $0.clear == clear && $1.clear != clear
+            }
+            var matched: Login?
+            for item in candidates {
+                if let login = Vault.login(item), login.password == password {
+                    matched = login
+                    break
+                }
+            }
+            if var same = matched {
                 // Where it was last used is where it is offered from now on.
                 same.clear = clear
                 Vault.touch(same)
