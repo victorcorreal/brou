@@ -89,7 +89,9 @@ enum Vault {
     /// Hosts passed by the page or an import share the existing www
     /// normalization. Other subdomains are separate credential stores.
     static func logins(matching host: String) -> [Login] {
-        logins(for: self.host(of: host))
+        let name = host.lowercased()
+        let server = name.hasPrefix("www.") ? String(name.dropFirst(4)) : name
+        return logins(for: server)
             .sorted { ($0.used ?? .distantPast) > ($1.used ?? .distantPast) }
     }
 

@@ -7,7 +7,7 @@ The keychain lookup now narrows by server before reading secrets. Storage identi
 ## Verification
 
 - The pre-fix Mac test reproduced domain grouping in the page-specific password panel with synthetic accounts.
-- `python3 Tests/passwords_site.py`: 21 passed, zero failures. Covers exact-host selection from real test keychain items, root/sibling separation, unknown and lookalike hosts, the www alias, text-search scope, form suggestions, filling and Manage passwords. Uses an isolated world and nonsynchronizing synthetic keychain items, removed afterwards.
+- `python3 Tests/passwords_site.py`: 22 passed, zero failures. Covers exact-host selection from real test keychain items, root/sibling separation, unknown and lookalike hosts, the www alias, IPv6 hosts, text-search scope, form suggestions, filling and Manage passwords. Uses an isolated world and nonsynchronizing synthetic keychain items, removed afterwards.
 - `python3 Tests/cloud_keychain.py`: 16 passed, zero failures. Checks reading, use timestamps, HTTP/HTTPS separation and deleting one of two same-host/user records without damaging the other. This is a local keychain test, not an end-to-end iCloud sync test.
 - Mac signed Release build and signature verification succeed. Installed with matching entitlements and six local JSON files unchanged immediately after installation.
 - Manual Mac check on the reported CMS login: the dropdown contains only its one saved CMS account, with no root-domain or development-server entry. No account was selected and no sign-in was submitted. The temporary check tab was closed.

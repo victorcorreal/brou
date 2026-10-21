@@ -56,6 +56,7 @@ KEPT = [
     ("https://dev.example.com/", "dora"),
     ("https://other.org/", "eve@example.com"),
     ("https://cms.example.com/login", "cms-account"),
+    ("http://[::1]/", "ipv6-local"),
     (f"http://cms.example.localhost:{PORT}/", "cms-local"),
     (f"http://dev.example.localhost:{PORT}/", "dev-local"),
     (f"http://example.localhost:{PORT}/", "parent-local"),
@@ -140,6 +141,8 @@ try:
     t.ok("the existing www alias still finds the root account", offered == ["cris"], offered)
     offered = sv.cmd({"do": "passwords", "offeredFor": "cms.example.com.evil.test"}).get("offered")
     t.ok("a lookalike domain gets no passwords", offered == [], offered)
+    offered = sv.cmd({"do": "passwords", "offeredFor": "::1"}).get("offered")
+    t.ok("IPv6 hosts keep their exact saved account", offered == ["ipv6-local"], offered)
     site, users = panel(site="cms.example.com", hunt="")
     t.ok("CMS excludes the root and sibling", users == ["cms-account"], users)
     site, users = panel(site="example.com", hunt="dora")
