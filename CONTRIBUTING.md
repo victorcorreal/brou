@@ -1,11 +1,19 @@
 # Contributing to Brou
 
-Brou is maintained by Victor Correal and is based on Search by Office Commun. Contributions and reports belong in [this variant's repository](https://github.com/victorcorreal/search). The repositories are private during preparation for public release.
+Brou is maintained by Victor Correal. Report bugs and propose changes in [this repository](https://github.com/victorcorreal/search). For vulnerabilities use [SECURITY.md](SECURITY.md).
 
-Before a larger change, describe the user problem and proposed scope in an issue. Prefer small pull requests, native Apple APIs, no new dependencies and no unsolicited telemetry. Preserve the MIT license, upstream attribution and existing data identities.
+For a larger change, open an issue describing the user problem before coding. Keep pull requests small. Prefer native Apple APIs, simple architecture and no new runtime dependencies. Reading, privacy and reliable Mac/iPhone continuity guide scope; roadmap proposals are not implemented features.
 
-Build with `./build.sh release`. Run `swift test --skip DownloadLifecycleTests` for the unit suite without WebKit download journeys. `python3 Tests/run-ci-tests.py` runs all Swift tests, isolating the download cases in separate processes. UI probes use SEARCH_PROBE and test-only storage; do not run experiments against a person's real bookmarks, passwords or session.
+1. Build from [Docs/BUILDING.md](Docs/BUILDING.md).
+2. Work in a branch and preserve other people's changes.
+3. Add a regression for meaningful behavior changes; use disposable accounts and synthetic pages.
+4. Run the checks in README.md and explain what passed, what was skipped and what needs manual/device testing.
+5. Describe the problem, resulting behavior and validation in the pull request.
 
-For a bug report include the steps, expected result, actual result, Brou version and macOS version. Review logs and screenshots before sharing them; redact addresses, account names, tokens and private browsing data. See [SECURITY.md](SECURITY.md) for private security reports.
+Never run a test against someone's real keychain, bookmarks, sessions or browser profile. Mac SEARCH_PROBE worlds and the iPhone synthetic Security adapter are distinct from real iCloud tests. A simulator or mocked keychain does not establish cross-device synchronization.
 
-The Swift target, historical storage names and SEARCH_* development variables deliberately retain their names for compatibility. Follow [Brand/README.md](Brand/README.md) when changing product artwork. Record changes in NOTES.md and the in-app notes. CHANGELOG.md and ROADMAP.md retain upstream context; they are not a claim that Office Commun's reports or usage belong to Brou.
+Include app/OS versions, reproducible steps, expected and actual behavior in bugs. Redact screenshots and logs. Do not send secrets, cookies, browsing history, Apple identifiers or provisioning material. We welcome voluntary feedback without usage telemetry; external adoption is not yet established.
+
+Keep the MIT license, Office Commun attribution, original authors and history. Follow [Brand/README.md](Brand/README.md) for artwork. Internal Search names and retained app/storage identities are compatibility contracts: changes need a migration plan. Update both apps and [Docs/SYNC.md](Docs/SYNC.md) when changing shared formats.
+
+For upstream work, keep a read-only remote, review changes in a branch and use cherry-pick -x for selected fixes to retain author/reference. Explain conflicts and excluded features. Re-run affected tests, check entitlements and persistent data, and record the result in Docs/UPSTREAM_INTEGRATION.md. Never merge upstream product changes without reviewing their fit for Brou.

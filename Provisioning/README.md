@@ -1,38 +1,11 @@
-# Provisioning (Victor's build only)
+# Provisioning helper
 
-Victor's Search has an identity of its own, `cat.correal.search`, so it can
-use iCloud: CloudKit for bookmarks and the rest, and a keychain group shared
-with the iPhone app for passwords. Office Commun's build is
-`com.officecommun.search`.
+This folder supports the maintainer's development identity. A clean source build does not need it. For your own Apple account follow [Docs/BUILDING.md](../Docs/BUILDING.md); change the helper configuration before asking Xcode to register anything.
 
-| What | Value |
-|---|---|
-| Team | Great Heights Systems S.L. (`E653G759EN`) |
-| Bundle id (Mac and iOS) | `cat.correal.search` |
-| CloudKit container | `iCloud.cat.correal.search`, private database, **Development** environment |
-| Keychain access group | `E653G759EN.cat.correal.search` |
-| Signing | "Apple Development: Created via API (GLH3XY3XWK)" |
-| Profile | "Mac Team Provisioning Profile: cat.correal.search", one year |
+The current app ID is cat.correal.search, team E653G759EN, container iCloud.cat.correal.search (private database, Development), group E653G759EN.cat.correal.search. These public identifiers do not grant access to data. Keep them for existing maintainer installations.
 
-## Files
+- project.yml and Search.entitlements define the small helper; regenerate its project with XcodeGen after configuration changes.
+- refresh.sh builds it with Xcode's signed-in account and copies its development profile to git-ignored Search.provisionprofile, only when missing/near expiry or with --forzar.
+- App.entitlements is used by build.sh when that profile exists. Pass SEARCH_SIGN_IDENTITY explicitly for a development certificate.
 
-- `project.yml`, `main.swift`, `Search.entitlements`, `SearchProvisioning.xcodeproj`: a helper app that is
-  never shipped. Building it with `-allowProvisioningUpdates` makes Xcode register the App ID, the iCloud
-  container and this Mac, and fetch the profile.
-- `refresh.sh`: builds the helper and copies its profile to `Search.provisionprofile` (git-ignored), only when
-  it is missing or ends within 30 days. `actualizar.sh` runs it before every build.
-- `App.entitlements`: what `build.sh` signs Search with whenever `Search.provisionprofile` is present: the usual
-  camera, microphone and location, plus iCloud and the keychain group.
-
-## Why Development and not Production
-
-CloudKit's Production environment only takes record types already deployed from the CloudKit Console. The
-Development environment creates them as the apps use them, and keeps its data. Both apps use Development.
-Moving to Production later: deploy the schema in the CloudKit Console, then change
-`com.apple.developer.icloud-container-environment` in both apps at once.
-
-## Another Mac
-
-A development profile lists the Macs it runs on. On the Mac mini, `refresh.sh --forzar` registers it with the
-same Xcode account and fetches a profile that includes it. A "Developer ID Application" certificate would avoid
-the list, but only the account holder can create one.
+The helper is not installed or distributed. No certificate, profile or private key is included. Development profiles list devices and expire; they are not a public distribution mechanism. Never switch the two apps to Production without planning the separate database and existing data.

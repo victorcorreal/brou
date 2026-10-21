@@ -13,3 +13,17 @@ __pycache__/
 *.provisionprofile
 *.p12
 *.mobileprovision
+
+# Private signing, local configuration and user exports
+*.p12
+*.p8
+*.key
+*.pem
+*.cer
+*.provisionprofile
+*.mobileprovision
+.env
+.env.*
+!.env.example
+*.local.xcconfig
+LocalSigning/

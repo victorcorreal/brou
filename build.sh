@@ -145,7 +145,6 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   $ICONNAME
   <key>LSMinimumSystemVersion</key><string>$MINIMUM</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
-  <key>NSHumanReadableCopyright</key><string>© Office Commun · Search</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSAppleScriptEnabled</key><true/>
   <key>OSAScriptingDefinition</key><string>Search.sdef</string>
