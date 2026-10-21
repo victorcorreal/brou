@@ -26,9 +26,20 @@ struct Omnibox: View {
             GeometryReader { geometry in
                 content(width: min(Metrics.fieldWidth, max(0, geometry.size.width - 28)))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottomTrailing) { bookmarkButton }
             }
         } else {
             content(width: Metrics.fieldWidth)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottomTrailing) { bookmarkButton }
+        }
+    }
+
+    @ViewBuilder
+    private var bookmarkButton: some View {
+        if !over {
+            StartBookmarks(browser: browser, bookmarks: browser.bookmarks)
+                .padding(20)
         }
     }
 

@@ -1653,7 +1653,7 @@ final class Browser: NSObject, ObservableObject {
             spaceID = last
             Spaces.current = last
         }
-        restoreSession()
+        restoreSession(startPage: first && usesFiles)
         if prefs.usesSpaces { preloadSpaces() }
     }
 
@@ -1709,7 +1709,7 @@ final class Browser: NSObject, ObservableObject {
     /// The row of tabs the space on screen had last time, or one empty tab.
     /// The pins are every window's (see Pins.swift): a window new to this
     /// space has them too, before an empty tab.
-    func restoreSession() {
+    func restoreSession(startPage: Bool = false) {
         let saved = readRow(spaceID)
         tabGroups = (saved.groups ?? []).filter { group in
             saved.tabs.contains { $0.groupID == group.id }
@@ -1717,6 +1717,12 @@ final class Browser: NSObject, ObservableObject {
         let restored = restoreRow(saved, space: spaceID, groups: tabGroups)
         splits = restored.splits
         tabs += restored.tabs
+        if startPage {
+            // Open the bookmark start page while retaining every restored tab.
+            // A link arriving from another app can immediately use this blank.
+            newTab()
+            return
+        }
         // No tab in front (a fresh start, see Session.startFresh): an empty
         // one beside the pins.
         let front = saved.tabs.isEmpty || saved.active < 0 ? nil

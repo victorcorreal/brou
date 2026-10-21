@@ -1,3 +1,7 @@
+Brou start-page bookmarks — 21 October 2026
+
+A small blue bookmark button at the bottom right keeps the start page and new tabs minimal. Click it to open existing bookmark folders and links. A cold launch selects the start page and retains the previous session's pages. No bookmark, iCloud or keychain records are migrated.
+
 Brou icon revision — 21 October 2026
 
 A single white steam wisp on black replaces the earlier bowl icon on Mac and iPhone. Compatibility and stored data identities are retained. See Brand/STEAM_ICON.md for verification.
