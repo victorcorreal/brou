@@ -1,3 +1,7 @@
+Brou — mantenimiento de upstream — 21 de octubre de 2026
+
+Las sugerencias de cuentas ya no leen todas las contraseñas al abrirse y mantienen cada subdominio separado. Se afinan la detección de campos de acceso, los límites del bloqueador, los marcadores abiertos desde pestañas fijadas, las ventanas de acceso asíncronas, las claves de seguridad la comunicación con extensiones y los límites de lectura de las importaciones. Historial, autores e identidades de datos conservados. Alcance, fuentes y verificación en Docs/UPSTREAM_INTEGRATION.md.
+
 Brou start-page bookmarks — 21 October 2026
 
 A small blue bookmark button at the bottom right keeps the start page and new tabs minimal. Click it to open existing bookmark folders and links. A cold launch selects the start page and retains the previous session's pages. No bookmark, iCloud or keychain records are migrated.

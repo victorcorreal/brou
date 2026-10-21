@@ -642,7 +642,8 @@ final class Browser: NSObject, ObservableObject {
     struct Suggesting: Equatable {
         let tab: Tab.ID
         var spot: CGRect
-        let logins: [Login]
+        /// Without secrets: one is read only for the account picked.
+        let logins: [Kept]
         /// The Mac's passkeys for a page waiting for one under its field.
         var passkeys: [Passkeys.Offered] = []
         /// The page the list was made for: its site, and whether it came in
@@ -740,7 +741,7 @@ final class Browser: NSObject, ObservableObject {
         // Passwords only for a box that goes with one: a box for passkeys
         // alone has no password to put anywhere.
         var kept = prefs.fillsPasswords && passwords
-            ? Vault.logins(matching: host).filter { !inTheClear || $0.clear } : []
+            ? Vault.kept(matching: host).filter { !inTheClear || $0.clear } : []
         // The account whose name the step before was sent with comes first:
         // the password page of a sign-in that asks for the name first.
         if let given = tab.givenName(),
@@ -762,7 +763,7 @@ final class Browser: NSObject, ObservableObject {
     }
 
     /// One of the accounts in the list, picked by name.
-    func choose(_ login: Login) {
+    func choose(_ login: Kept) {
         lowering?.cancel()
         guard let list = suggesting, let tab = tabs.first(where: { $0.id == list.tab }) else { return }
         guard Date().timeIntervalSince(list.shown) > 0.5 else { return }
@@ -779,6 +780,11 @@ final class Browser: NSObject, ObservableObject {
             tab.fillName(login.user) { [weak self] worked in
                 if !worked { self?.announce("Couldn't find the sign-in fields anymore") }
             }
+            return
+        }
+        // Its secret is read now, once it is picked: see `Vault.kept(for:)`.
+        guard let login = Vault.login(login) else {
+            announce("The keychain refused it")
             return
         }
         tab.fill(user: login.user, password: login.password) { [weak self] worked in
@@ -3522,6 +3528,21 @@ final class Browser: NSObject, ObservableObject {
         }
     }
 
+    /// A bookmark, from the bar, the Bookmarks menu or a list of them: in a
+    /// tab of its own, never in place of the one you are on (Drice: opened
+    /// from a pin, it took the pin's place). An empty new tab is the one
+    /// exception, since nothing is lost by using it. With ⌘ it opens behind.
+    func openBookmark(_ url: URL) {
+        let behind = NSApp.currentEvent?.modifierFlags.contains(.command) ?? false
+        if !behind, let active, active.isBlank, active.pin == nil, !active.floating {
+            active.go(to: url)
+            editing = false
+            typed = ""
+        } else {
+            open(url, foreground: !behind, from: active, mayWait: behind)
+        }
+    }
+
     /// A bookmark picked from the button's list or the full one. Either
     /// goes as the page starts: the list off the button used to stay open
     /// over the page it had just sent you to. A middle-click opens it in a
@@ -3536,7 +3557,7 @@ final class Browser: NSObject, ObservableObject {
         if inNewTab {
             open(url, foreground: foreground, from: active, mayWait: true)
         } else {
-            visit(url)
+            openBookmark(url)
         }
     }
 
@@ -3842,7 +3863,7 @@ final class Browser: NSObject, ObservableObject {
         // The middle button on a link opens it beside the tab you are on, as
         // it does in every other browser (see MiddleRelay).
         // From a private tab, the new one is private too, as for ⌘-click.
-        tab.onMiddleClick = { [weak self] tab, url in self?.open(url, foreground: false, from: tab, mayWait: true) }
+        tab.onMiddleClick = { [weak self] tab, url in self?.openClicked(url, foreground: false, from: tab, view: tab.built) }
         tab.onCross = { [weak self] tab, url in self?.replace(tab, going: url) }
 
         // The caret in a sign-in box: the accounts kept for this site hang
@@ -3860,9 +3881,22 @@ final class Browser: NSObject, ObservableObject {
             // A password manager extension that asked Chrome's way to do the
             // saving itself.
             if #available(macOS 15.4, *), Extensions.shared.passwordSavingTakenBy != nil { return }
-            let known = Vault.logins(for: host)
-            // Nothing to ask about one that is already known.
-            if var same = known.first(where: { $0.user == user && $0.password == password }) {
+            let known = Vault.kept(for: host)
+            // Only this user's items are candidates. Prefer this scheme,
+            // but a manually entered password may belong to its other item.
+            // Keep that persistent reference rather than offering to replace
+            // the different password already saved for this scheme.
+            let candidates = known.filter { $0.user == user }.sorted {
+                $0.clear == clear && $1.clear != clear
+            }
+            var matched: Login?
+            for item in candidates {
+                if let login = Vault.login(item), login.password == password {
+                    matched = login
+                    break
+                }
+            }
+            if var same = matched {
                 // Where it was last used is where it is offered from now on.
                 same.clear = clear
                 Vault.touch(same)
@@ -4222,6 +4256,11 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
     ) {
         decide(webView, action) { [weak self] policy in
+            // Revoke before WebKit can run the old document's unload handlers.
+            // A nil target is a new window, not this tab leaving its document.
+            if policy == .allow, action.targetFrame?.isMainFrame == true {
+                self?.popupTab(for: webView)?.popupGesture.clear()
+            }
             if policy == .allow, action.targetFrame?.isMainFrame ?? true, let url = action.request.url {
                 let shy = self?.tab(for: webView)?.shy == true || !webView.configuration.websiteDataStore.isPersistent
                 Autoplay.apply(to: preferences, for: url, shy: shy)
@@ -4320,7 +4359,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         if action.navigationType == .linkActivated,
            ["http", "https"].contains(scheme),
            action.modifierFlags.contains(.command) {
-            open(url, foreground: action.modifierFlags.contains(.shift), from: tab(for: webView), mayWait: true)
+            openClicked(url, foreground: action.modifierFlags.contains(.shift), from: tab(for: webView), view: webView)
             decisionHandler(.cancel)
             return
         }
@@ -4444,7 +4483,9 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         for action: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        let from = tab(for: webView)?.id ?? activeID
+        guard let opener = popupTab(for: webView),
+              opener.popupGesture.take(origin: PopupGesture.origin(action.sourceFrame), mainFrame: action.sourceFrame.isMainFrame) else { return nil }
+        let from = opener.id
         // WebKit's copy of the opener's configuration still holds the
         // opener's user content controller — its scripts and its message
         // handlers. Shared, the new tab claimed the opener's handlers as its
@@ -4452,10 +4493,11 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // right-click on a picture on X, after following a link out of it,
         // did nothing at all. Each tab gets a controller of its own.
         configuration.userContentController = WKUserContentController()
-        let tab = Tab(shy: tab(for: webView)?.shy ?? false, configuration: configuration)
+        let tab = Tab(shy: opener.shy, configuration: configuration)
         tab.popup = windowFeatures.width != nil || windowFeatures.height != nil
             || windowFeatures.toolbarsVisibility?.boolValue == false
         tab.opener = from
+        opener.popupGesture.opened(tab.id)
         // The link menu's Open Link in New Tab: behind this tab, where a
         // ⌘-click's goes (see open(_:foreground:)).
         if (webView as? PageView)?.takeBehind() == true, let source = self.tab(for: webView) {
@@ -4471,6 +4513,22 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // request into it itself when the action carries one.
         if let url = action.request.url { tab.setAddressOptimistically(url) }
         return tab.web
+    }
+
+    /// A link clicked open in a tab by Search itself (⌘-click, the middle
+    /// button): one click, one tab. When the page's own script already
+    /// opened a window for that click, it is the tab — put where the click
+    /// asked, behind unless ⇧ was held — and no second one opens. Otherwise
+    /// the click is spent, and a window.open after it gets nothing.
+    private func openClicked(_ url: URL, foreground: Bool, from source: Tab?, view: WKWebView?) {
+        let opener = view.flatMap { popupTab(for: $0) }
+        if let made = opener?.popupGesture.claim(), let tab = tabs.first(where: { $0.id == made }) {
+            if !foreground, activeID == tab.id, let source, tabs.contains(where: { $0.id == source.id }) {
+                activeID = source.id
+            }
+            return
+        }
+        open(url, foreground: foreground, from: source, mayWait: true)
     }
 
     /// Anything the window can't show is something to keep instead.
@@ -4882,6 +4940,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        popupTab(for: webView)?.popupGesture.clear()
         guard let tab = tab(for: webView) else {
             // A small window's page came: what failed before it is over.
             littleTab(for: webView)?.failure = nil
@@ -4986,6 +5045,15 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
     /// and a link that failed to load there left the window blank.
     private func littleTab(for webView: WKWebView) -> Tab? {
         LittleWindow.all.first { $0.tab.built === webView }?.tab
+    }
+
+    /// Popups belong to the view that received the gesture, including pages
+    /// in a Peek or Little window that have no row in this browser yet.
+    func popupTab(for webView: WKWebView) -> Tab? {
+        guard webView.navigationDelegate === self else { return nil }
+        return anyTab(for: webView)
+            ?? (peekTab?.built === webView ? peekTab : nil)
+            ?? littleTab(for: webView)
     }
 
     /// The tab a page belongs to, in the space on screen or another: a page

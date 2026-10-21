@@ -150,8 +150,14 @@ try:
     site, users = panel(site="", hunt="")
     t.ok("without a site, every password", site == "" and len(users) == len(KEPT), users)
 
+    # Listing accounts must not fetch any secret from the keychain.
+    diary = Path(sv.SUPPORT) / "keychain-events.log"
+    before_listing = diary.read_text() if diary.exists() else ""
     # The foot of the list under the sign-in box.
     login_page()
+    listed_events = (diary.read_text() if diary.exists() else "")[len(before_listing):]
+    t.ok("showing account suggestions reads no secrets", "data=true" not in listed_events, listed_events)
+
     shown = sv.cmd({"do": "accounts"})
     t.ok("the list under the box offers this site's accounts",
          sorted(r.get("login") for r in shown.get("rows", [])) == ["ana", "bob"], shown)

@@ -350,6 +350,13 @@ final class Bench {
             guard let tab = find(request, in: browser) else { answer(missing(request)); return }
             browser.sleep(tab) { said in answer(["said": said, "asleep": tab.asleep]) }
 
+        case "openmark":
+            // A bookmark opened as the bar opens one. Only on a SEARCH_PROBE run.
+            guard Store.testing else { answer(["error": "openmark only works on a --test run"]); return }
+            guard let text = request["url"] as? String, let url = URL(string: text) else { answer(["error": "openmark needs a url"]); return }
+            browser.openBookmark(url)
+            answer(["active": browser.active?.id.uuidString ?? ""])
+
         case "pin":
             // Pin a tab, or unpin it with "off". Only on a SEARCH_PROBE run.
             guard Store.testing else { answer(["error": "pin only works on a --test run"]); return }
@@ -433,14 +440,26 @@ final class Bench {
                         if name == "cmd" { held.insert(.command) }
                         if name == "opt" { held.insert(.option) }
                     }
-                    for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-                        guard let event = NSEvent.mouseEvent(
+                    // "button": "middle" clicks with the middle button.
+                    let middle = request["button"] as? String == "middle"
+                    let types: [NSEvent.EventType] = middle ? [.otherMouseDown, .otherMouseUp] : [.leftMouseDown, .leftMouseUp]
+                    for type in types {
+                        guard var event = NSEvent.mouseEvent(
                             with: type, location: spot, modifierFlags: held,
                             timestamp: ProcessInfo.processInfo.systemUptime,
                             windowNumber: window.windowNumber, context: nil,
-                            eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0
+                            eventNumber: 0, clickCount: 1, pressure: type == types[0] ? 1 : 0
                         ) else { continue }
-                        if type == .leftMouseDown { view.mouseDown(with: event) } else { view.mouseUp(with: event) }
+                        if middle, let raw = event.cgEvent {
+                            raw.setIntegerValueField(.mouseEventButtonNumber, value: 2)
+                            if let again = NSEvent(cgEvent: raw) { event = again }
+                        }
+                        switch type {
+                        case .leftMouseDown: view.mouseDown(with: event)
+                        case .otherMouseDown: view.otherMouseDown(with: event)
+                        case .otherMouseUp: view.otherMouseUp(with: event)
+                        default: view.mouseUp(with: event)
+                        }
                     }
                     answer(["ok": true, "at": point.map { Int($0) }])
                 }
@@ -1652,7 +1671,7 @@ final class Bench {
             }
             // Test-only view of the same keychain selection used by autofill.
             let offered = (request["offeredFor"] as? String).map {
-                Vault.logins(matching: $0).map(\.user)
+                Vault.kept(matching: $0).map(\.user)
             } ?? []
             answer(["site": browser.passwordSite ?? "", "offered": offered, "rows": browser.shownSites.flatMap(\.logins).map { row -> [String: Any] in
                 ["id": row.id, "host": row.host, "user": row.user, "clear": row.clear,
@@ -2586,7 +2605,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "tabs", "open", "go", "close", "wait", "sleep", "select", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "place", "group", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "accounts", "passwords", "find", "answer", "visible", "ai", "notifications",
+                "tabs", "open", "go", "openmark", "close", "wait", "sleep", "select", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "place", "group", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "accounts", "passwords", "find", "answer", "visible", "ai", "notifications",
             ]])
         }
     }
