@@ -29,12 +29,13 @@ import Security
 final class Updater: ObservableObject {
     static let shared = Updater()
 
-    /// Where the file lives. SEARCH_FEED, for a test run, points somewhere
-    /// else — and is the only way plain http is accepted, so a build that
-    /// was not handed the variable only ever listens to the real site.
-    /// SEARCH_FEED points a test run at a feed of its own. Only a test run:
-    /// the browser people use reads Office Commun's feed whatever the
-    /// environment it was started with says.
+    /// Brou has no release feed yet. Keep the inherited updater available
+    /// only to isolated probes explicitly pointed at their own test feed.
+    static var enabled: Bool { overridden }
+
+    /// Only an isolated test with SEARCH_FEED can enable network checks.
+    /// The inherited fallback addresses remain for upstream compatibility;
+    /// production Brou never fetches them while `enabled` is false.
     static let feed: URL = {
         if overridden, let set = ProcessInfo.processInfo.environment["SEARCH_FEED"], let url = URL(string: set) {
             return url
@@ -132,6 +133,7 @@ final class Updater: ObservableObject {
     /// checks every time.
     func checkIfDue(then say: @escaping (String) -> Void) {
         self.say = say
+        guard Self.enabled else { return }
         Swap.sweep()
         // And again every hour for as long as the app is up — a browser that
         // is left open for a week would otherwise never look.
@@ -157,12 +159,16 @@ final class Updater: ObservableObject {
     /// Search › Check for Updates…: the result is said in the line at the
     /// foot of the window, and an available update is offered in the menu.
     func checkByHand() {
+        guard Self.enabled else {
+            say?("Brou updates are managed manually — see the project repository")
+            return
+        }
         switch stage {
         case .ready(let next):
-            say?("Search \(next.version) is ready — relaunch to use it")
+            say?("Brou \(next.version) is ready — relaunch to use it")
             return
         case .fetching(let next):
-            say?("Search \(next.version) is downloading…")
+            say?("Brou \(next.version) is downloading…")
             return
         default: break
         }
@@ -170,7 +176,7 @@ final class Updater: ObservableObject {
         say?("Checking for updates…")
         check { [weak self] found in
             guard let self else { return }
-            if found == nil { self.say?("Search is up to date"); return }
+            if found == nil { self.say?("Brou is up to date"); return }
             // The waiting branch or `take` announces the next state afterward.
         }
     }
@@ -179,6 +185,7 @@ final class Updater: ObservableObject {
     /// names, or nil when this is the latest; what becomes of it after that
     /// is said through the line handed to `checkIfDue`.
     func check(then done: @escaping (Release?) -> Void) {
+        guard Self.enabled else { done(nil); return }
         guard !checking else { return }
         checking = true
         Task { [weak self] in
@@ -201,7 +208,7 @@ final class Updater: ObservableObject {
             case .waiting(let known) where known == found: break
             case .none, .offered, .waiting:
                 stage = .waiting(found)
-                say?("Search \(found.version) is out — choose Install Update in the Search menu")
+                say?("Brou \(found.version) is out — choose Install Update in the Brou menu")
             }
         }
     }
@@ -214,9 +221,10 @@ final class Updater: ObservableObject {
     static var diskVerdict = ""
 
     func openDisk() {
+        guard Self.enabled else { return }
         guard case .offered(let release) = stage, !fetchingDisk else { return }
         fetchingDisk = true
-        say?("Downloading Search \(release.version)…")
+        say?("Downloading Brou \(release.version)…")
         Task.detached(priority: .utility) {
             let result: Result<URL, Error>
             do { result = .success(try await Swap.disk(release)) } catch { result = .failure(error) }
@@ -228,7 +236,7 @@ final class Updater: ObservableObject {
                     if Store.testing { Updater.diskVerdict = "verified" } else { NSWorkspace.shared.open(dmg) }
                 case .failure(let error):
                     Updater.diskVerdict = "refused: \(error)"
-                    say?("That download didn't check out — get Search from officecommun.com/search")
+                    say?("That download didn't check out — rebuild Brou from its repository")
                 }
             }
         }
@@ -237,6 +245,7 @@ final class Updater: ObservableObject {
     /// Install, because somebody pressed it: the same fetch, checks and swap
     /// as on its own.
     func install() {
+        guard Self.enabled else { return }
         guard case .waiting(let release) = stage else { return }
         take(release)
     }
@@ -246,12 +255,13 @@ final class Updater: ObservableObject {
     /// the bundle this process is running from out from under it, so the
     /// next launch takes the next one.
     private func take(_ release: Release) {
+        guard Self.enabled else { return }
         switch stage {
         case .fetching, .ready: return
         case .none, .offered, .waiting: break
         }
         stage = .fetching(release)
-        say?("Search \(release.version) is downloading…")
+        say?("Brou \(release.version) is downloading…")
         Task.detached(priority: .utility) {
             let worked: Bool
             do {
@@ -268,8 +278,8 @@ final class Updater: ObservableObject {
         guard case .fetching(let fetching) = stage, fetching == release else { return }
         stage = worked ? .ready(release) : .offered(release)
         say?(worked
-            ? "Search \(release.version) is ready — it's there the next time you open it"
-            : "Search \(release.version) is out — choose Download Update in the Search menu")
+            ? "Brou \(release.version) is ready — it's there the next time you open it"
+            : "Brou \(release.version) is out — choose Download Update in the Brou menu")
     }
 
     /// Quit, and come back as the new one. A shell waits for this process
@@ -529,7 +539,7 @@ private enum Swap {
         guard let expected = release.dmgSha256 else { throw Refused.hash }
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("search-disk-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let dmg = folder.appendingPathComponent("Search \(release.version).dmg")
+        let dmg = folder.appendingPathComponent("Brou \(release.version).dmg")
         try await download(release.dmg, to: dmg)
         guard try digest(of: dmg) == expected else { throw Refused.hash }
         var code: SecStaticCode?

@@ -4,9 +4,8 @@
 # fetches.
 #
 #   ./build.sh                 debug-free release build, ad-hoc signed: runs here
-#   ./build.sh release dmg     + build/Search.dmg, build/Search.zip and
-#                                build/appcast.json, signed with Developer ID
-#                                if there is one in the keychain
+#   ./build.sh release dmg     + build/Brou.dmg, build/Brou.zip and
+#                                an appcast only with SEARCH_DOWNLOAD_URL set
 #   ./build.sh release ship    + both notarised, the DMG stapled
 #
 #   SEARCH_ARCH=x86_64 ./build.sh release ship
@@ -34,9 +33,9 @@
 #     (SEARCH_SIGN_IDENTITY names it; otherwise the first one found is used)
 #   - a notarytool profile: xcrun notarytool store-credentials "search"
 #     (SEARCH_NOTARY_PROFILE names it; default "search")
-#   - SEARCH_DOWNLOAD_URL, the https folder the three files are served from,
-#     for the appcast. Default https://officecommun.com/search, which is
-#     where Updater.feed in Updater.swift looks.
+#   - SEARCH_DOWNLOAD_URL, an explicitly configured https release folder,
+#     to generate an appcast. Brou has no default release URL and its
+#     inherited updater stays disabled for production builds.
 #
 # NOTES.md, next to this script, is what's new: newest release first, one
 # paragraph each. The first paragraph goes into the appcast, and from there
@@ -52,8 +51,8 @@ case "$ARCH" in
   x86_64) OUT="build/intel"; SUBFOLDER="/intel" ;;
   *) echo "SEARCH_ARCH is arm64 or x86_64, not “$ARCH”" >&2; exit 1 ;;
 esac
-APP="$OUT/Search.app"
-NAME="Search"
+APP="$OUT/Brou.app"
+NAME="Brou"
 # Victor's build has an identity of its own, so it can use iCloud (see
 # Provisioning/README.md). Office Commun's is com.officecommun.search.
 BUNDLE_ID="cat.correal.search"
@@ -86,7 +85,7 @@ cp Search.sdef "$APP/Contents/Resources/"
 # what the app weighed (6.5 MB of binary, 2.7 without them), and nothing the
 # app reads while it runs. They are kept beside the build instead, as a dSYM
 # that turns the addresses in a crash report back into names (Console, or
-# atos -o build/Search.app.dSYM/Contents/Resources/DWARF/Search).
+# atos -o build/Brou.app.dSYM/Contents/Resources/DWARF/Search).
 if [ "$CONFIG" = "release" ]; then
   rm -rf "$APP.dSYM"
   dsymutil "$BINARY" -o "$APP.dSYM" 2>/dev/null || echo "no dSYM this time" >&2
@@ -138,6 +137,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleDisplayName</key><string>$NAME</string>
   <key>CFBundleExecutable</key><string>$NAME</string>
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
+  <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Office Commun and Victor Correal. Brou is based on Search (MIT).</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD</string>
@@ -186,11 +186,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
        still wants a sentence to put in its own prompt, and touching the APIs
        without one is a crash rather than a refusal. -->
   <key>NSCameraUsageDescription</key>
-  <string>Websites you visit can ask to use your camera. Search asks you the first time each site does and keeps your answer; Settings › Privacy forgets them.</string>
+  <string>Websites you visit can ask to use your camera. Brou asks you the first time each site does and keeps your answer; Settings › Privacy forgets them.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Websites you visit can ask to use your microphone. Search asks you the first time each site does and keeps your answer; Settings › Privacy forgets them.</string>
+  <string>Websites you visit can ask to use your microphone. Brou asks you the first time each site does and keeps your answer; Settings › Privacy forgets them.</string>
   <key>NSLocationUsageDescription</key>
-  <string>Websites you visit can ask for your location. Search asks you each time a site does, unless you choose Always allow for it; Settings › Privacy forgets those choices.</string>
+  <string>Websites you visit can ask for your location. Brou asks you each time a site does, unless you choose Always allow for it; Settings › Privacy forgets those choices.</string>
   <key>NSDownloadsFolderUsageDescription</key>
   <string>Files you download are saved to your Downloads folder.</string>
 </dict>
@@ -282,8 +282,8 @@ echo "packed: $ZIP"
 # characters JSON minds escaped, is the line under the version in Settings.
 # Written last — after notarisation has stapled its ticket to the DMG, which
 # changes it — so the DMG's hash is the one people download.
-BASE="${SEARCH_DOWNLOAD_URL:-https://officecommun.com/search}"
-BASE="${BASE%/}$SUBFOLDER"
+BASE="${SEARCH_DOWNLOAD_URL:-}"
+[ -z "$BASE" ] || BASE="${BASE%/}$SUBFOLDER"
 NOTES=""
 if [ -f NOTES.md ]; then
   NOTES="$(awk 'NF { printf "%s%s", (n++ ? " " : ""), $0; next } n { exit }' NOTES.md \
@@ -311,6 +311,10 @@ write_engine() {
   echo "engine: $OUT/ai/$FILE"
 }
 write_appcast() {
+  if [ -z "$BASE" ]; then
+    echo "Brou has no update feed configured; no appcast generated."
+    return
+  fi
   local DMGSHA
   DMGSHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
   write_engine

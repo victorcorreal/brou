@@ -1130,7 +1130,7 @@ final class Extensions: NSObject, ObservableObject {
 
     private func ask(install name: String, wants: [String], icon: NSImage?) async -> Bool {
         await ask(
-            "Add “\(name)” to Search?",
+            "Add “\(name)” to Brou?",
             detail: wants.isEmpty ? "It doesn't ask for anything special." : "It will be able to:\n• " + wants.joined(separator: "\n• "),
             icon: icon, yes: "Add Extension", no: "Cancel"
         )
@@ -1148,7 +1148,7 @@ final class Extensions: NSObject, ObservableObject {
         let name = context.webExtension.displayName ?? "An extension"
         return await ask(
             "“\(name)” wants to record your screen or a window.",
-            detail: "macOS will ask what to share. Search remembers your answer for \(name); Settings › Extensions takes it back.",
+            detail: "macOS will ask what to share. Brou remembers your answer for \(name); Settings › Extensions takes it back.",
             icon: context.webExtension.icon(for: CGSize(width: 64, height: 64)), yes: "Continue", no: "Don't Allow")
     }
 

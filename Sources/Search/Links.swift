@@ -266,18 +266,13 @@ final class Links: NSObject, NSApplicationDelegate {
     }
 
     /// ⌘⇧F, the Help menu, and the About page all come here: a draft, in
-    /// Mail, that already knows what build this is. The person still reads
-    /// it and presses send themselves — nothing here sends anything.
+    /// Open this variant's issue form. The person writes and submits the report.
     static func writeFeedback() {
-        var text = URLComponents()
-        text.scheme = "mailto"
-        text.path = "hello@officecommun.com"
-        text.queryItems = [
-            URLQueryItem(name: "subject", value: "Search feedback — \(Updater.version) (\(Updater.build))"),
-            URLQueryItem(name: "body", value: "\n\n—\nSearch \(Updater.version), build \(Updater.build), macOS \(ProcessInfo.processInfo.operatingSystemVersionString)"),
-        ]
-        guard let url = text.url else { return }
-        NSWorkspace.shared.open(url)
+        NSWorkspace.shared.open(URL(string: "https://github.com/victorcorreal/search/issues/new")!)
+    }
+
+    static func openProject() {
+        NSWorkspace.shared.open(URL(string: "https://github.com/victorcorreal/search")!)
     }
 
     // MARK: - being the browser

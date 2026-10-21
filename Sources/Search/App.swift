@@ -37,7 +37,7 @@ struct SearchApp: App {
         // shares, and a probe resized for a test once changed the size the
         // real window came back at. The other windows' frames are in
         // windows.json (see Windows.swift).
-        Window("Search", id: Browsers.sceneID) {
+        Window("Brou", id: Browsers.sceneID) {
             SceneRoot(slot: SceneSlot.shared)
                 .frame(minWidth: 640, minHeight: 420)
         }
@@ -294,7 +294,10 @@ struct SearchApp: App {
                     .shortcut("history.clear")
             }
             // Search › Check for Updates…, under About, as in any Mac app.
-            CommandGroup(after: .appInfo) { UpdateMenuItem() }
+            CommandGroup(after: .appInfo) {
+                if Updater.enabled { UpdateMenuItem() }
+                else { Button("Brou Project…") { Links.openProject() } }
+            }
             CommandGroup(after: .appSettings) {
                 Button("Settings…") { browser.tuning = true }
                     .shortcut("app.settings")
@@ -304,7 +307,7 @@ struct SearchApp: App {
                     .shortcut("app.passwords")
             }
             CommandGroup(replacing: .help) {
-                Button("Send Feedback…") { Links.writeFeedback() }
+                Button("Report an Issue…") { Links.writeFeedback() }
             }
         }
     }

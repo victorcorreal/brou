@@ -766,7 +766,7 @@ final class Tab: ObservableObject, Identifiable {
         controller.addUserScript(
             WKUserScript(source: ImageRelay.watch, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: Web.world)
         )
-        // The store's "Add to Search" only where Search can add extensions.
+        // The store's "Add to Brou" only where Search can add extensions.
         // Before macOS 15.4 it was drawn all the same, and pressing it did
         // nothing at all; Settings › Extensions says what they need instead.
         if #available(macOS 15.4, *) {

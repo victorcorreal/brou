@@ -76,6 +76,7 @@ enum WhatsNew {
     ]
 
     static let releases: [Release] = [
+        Release(version: "1.1.0"),
         Release(version: "1.0.5"),
         Release(version: "1.0.4"),
     ]
@@ -126,6 +127,11 @@ enum WhatsNew {
 
     /// Newest first.
     static let notes: [Notes] = [
+        Notes(version: "1.1.0", date: "21 October 2026",
+              headline: "Search becomes Brou: a name and icon of our own.",
+              new: ["A shared Brou identity for Mac and iPhone."],
+              better: ["The same bookmarks, passwords, sessions and iCloud identity.", "Brou updates are managed manually while its own distribution is prepared."],
+              fixed: []),
         Notes(
             version: "1.0.5", date: "14 October 2026",
             headline: "Split View, pinned rows, notifications and screen recorders. What's new is off until you turn it on, and the card after the update offers it.",
@@ -289,7 +295,7 @@ struct WhatsNewCard: View {
     private var fresh: [WhatsNew.Toggle] { WhatsNew.toggles.filter { $0.since == release.version } }
 
     var body: some View {
-        Plate("New in Search \(release.version)", width: 460, close: close) {
+        Plate("New in Brou \(release.version)", width: 460, close: close) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     rows(fresh)
@@ -367,7 +373,7 @@ struct ReleaseNotesPanel: View {
     private func version(_ note: WhatsNew.Notes) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("Search \(note.version)")
+                Text("\(note.version == "1.1.0" ? "Brou" : "Search") \(note.version)")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Palette.ink)
                 if !note.date.isEmpty {
