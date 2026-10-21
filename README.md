@@ -2,9 +2,9 @@
 
 A small WebKit browser for Mac, focused on comfortable reading, privacy and continuity with iPhone. Maintained by Victor Correal. Based on [Search by Office Commun](https://github.com/driceroland/Search), under the MIT license.
 
-<img src="Brand/Brou.png" width="112" alt="Brou: a cream bowl and rising steam on a warm orange background">
+<img src="Brand/Brou.png" width="112" alt="Brou: a single white wisp of steam on black">
 
-Brou means **broth** in Catalan. Its own icon suggests a bowl, steam and a lowercase b. Brou 1.1.0 introduces this identity on Mac and iPhone.
+Brou means **broth** in Catalan. Its minimal icon is a single white wisp of steam on black. Brou 1.1.0 introduces this identity on Mac and iPhone.
 
 ## This version
 

@@ -32,7 +32,7 @@ func png(pixels: Int, framed: Bool) -> Data {
         shadow.shadowBlurRadius = 24 * scale
         shadow.shadowOffset = NSSize(width: 0, height: -10 * scale)
         shadow.set()
-        NSColor(red: 0.82, green: 0.25, blue: 0.02, alpha: 1).setFill()
+        NSColor.black.setFill()
         shape.fill()
         NSGraphicsContext.restoreGraphicsState()
         shape.addClip()
@@ -58,7 +58,7 @@ if arguments.count > 2 {
     try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
     try png(pixels: 1024, framed: false).write(to: assets.appendingPathComponent("Brou.png"))
     let document: [String: Any] = [
-        "fill": ["solid": "srgb:0.82000,0.25000,0.02000,1.00000"],
+        "fill": ["solid": "srgb:0.00000,0.00000,0.00000,1.00000"],
         "groups": [[
             "layers": [["name": "Brou", "image-name": "Brou.png", "glass": false]],
             "shadow": ["kind": "none", "opacity": 0.0],

@@ -1,3 +1,7 @@
+Brou icon revision — 21 October 2026
+
+A single white steam wisp on black replaces the earlier bowl icon on Mac and iPhone. Compatibility and stored data identities are retained. See Brand/STEAM_ICON.md for verification.
+
 Brou 1.1.0 — 21 October 2026
 
 The Mac and iPhone apps now share the Brou name and their own cream-and-orange bowl/steam icon. Bundle IDs, iCloud, keychain labels, sessions and local storage identities are unchanged. Updates from Office Commun are disabled for Brou while its own distribution is prepared.

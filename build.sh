@@ -92,13 +92,13 @@ if [ "$CONFIG" = "release" ]; then
   strip -x "$APP/Contents/MacOS/$NAME"
 fi
 
-# The icon, drawn fresh each time — it is thirty lines of Swift, not an asset
-# to keep in step with anything.
-ICONSET="build/AppIcon.iconset"
-ICONDOC="build/AppIcon.icon"
+# Package the checked-in Brou artwork for macOS. A distinct resource name
+# also lets macOS replace cached icons from the earlier bowl identity.
+ICONSET="build/BrouSteam.iconset"
+ICONDOC="build/BrouSteam.icon"
 rm -rf "$ICONSET" "$ICONDOC"
 swift Icon/icon.swift "$ICONSET" "$ICONDOC" > /dev/null
-iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/BrouSteam.icns"
 rm -rf "$ICONSET"
 # macOS 26's Dark, Clear and Tinted Dock styles read the icon from an asset
 # catalog compiled from the Icon Composer document; without one the Dock
@@ -112,17 +112,17 @@ rm -rf "$ICONSET"
 # those pictures zipped rather than lzfse'd: 666 KB of catalog instead of
 # 800, every style still in it.
 ICONNAME=""
-ICONCAR="build/AppIcon.car"
+ICONCAR="build/BrouSteam.car"
 rm -rf "$ICONCAR"
 mkdir -p "$ICONCAR"
 # Full paths: actool hands the document to a helper that runs elsewhere, and
 # with "build/…" it finds nothing ("Icon export exited with status 255").
 if xcrun actool "$PWD/$ICONDOC" --compile "$PWD/$ICONCAR" --platform macosx \
-     --minimum-deployment-target "$MINIMUM" --app-icon AppIcon --optimization space \
+     --minimum-deployment-target "$MINIMUM" --app-icon BrouSteam --optimization space \
      --output-partial-info-plist "$PWD/$ICONCAR/partial.plist" > /dev/null 2>&1 \
    && [ -f "$ICONCAR/Assets.car" ]; then
   cp "$ICONCAR/Assets.car" "$APP/Contents/Resources/Assets.car"
-  ICONNAME="<key>CFBundleIconName</key><string>AppIcon</string>"
+  ICONNAME="<key>CFBundleIconName</key><string>BrouSteam</string>"
 else
   echo "note: actool from Xcode 26 didn't compile the icon — no Dark or Tinted style this time" >&2
 fi
@@ -141,7 +141,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD</string>
-  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundleIconFile</key><string>BrouSteam</string>
   $ICONNAME
   <key>LSMinimumSystemVersion</key><string>$MINIMUM</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
@@ -254,7 +254,7 @@ if [ -x "$DMGBUILD" ] \
   && tiffutil -cathidpicheck "$ART/background.png" "$ART/background@2x.png" -out "$ART/background.tiff" >/dev/null 2>&1
 then
   "$DMGBUILD" -s Installer/dmg.py \
-    -D app="$APP" -D background="$ART/background.tiff" -D icon="$APP/Contents/Resources/AppIcon.icns" \
+    -D app="$APP" -D background="$ART/background.tiff" -D icon="$APP/Contents/Resources/BrouSteam.icns" \
     "$NAME" "$DMG" >/dev/null
 else
   echo "note: no dmgbuild — a plain disk image, without its window laid out" >&2
