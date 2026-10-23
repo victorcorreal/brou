@@ -96,6 +96,20 @@ final class VaultAndUpdaterTests: XCTestCase {
         XCTAssertEqual(Vault.take(csv: csv).skipped, 1)
     }
 
+    func testExportHasTheColumnsChromeAndPasswordsTakeIn() {
+        let csv = Vault.csv([["name", "url", "username", "password", "note"]])
+        XCTAssertEqual(csv, "\"name\",\"url\",\"username\",\"password\",\"note\"\n")
+    }
+
+    func testExportedFieldsComeBackWhole() {
+        let rows = [
+            ["name", "url", "username", "password", "note"],
+            ["example.com", "https://example.com/", "me@example.com", "a,b\"c\nd", ""],
+            ["example.org", "http://example.org/", "", " leading and trailing ", ""],
+        ]
+        XCTAssertEqual(Vault.parse(csv: Vault.csv(rows)), rows)
+    }
+
     private func release(minimum: String?) -> Updater.Release {
         Updater.Release(
             version: "9.9", build: 9999,

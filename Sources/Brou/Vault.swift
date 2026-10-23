@@ -335,6 +335,35 @@ enum Vault {
         ] as CFDictionary, nil) == errSecSuccess
     }
 
+    // MARK: - handing them over
+
+    /// Every password kept, as Chrome writes them — name, url, username,
+    /// password, note — which Apple's Passwords, Chrome and this app all take
+    /// in. Built in memory for the one file the caller writes, after the Mac
+    /// has said who this is; nothing here keeps it. One the keychain won't
+    /// hand over is counted, not written.
+    static func export() -> (csv: String, count: Int, unread: Int) {
+        var rows = [["name", "url", "username", "password", "note"]]
+        var unread = 0
+        for kept in all() {
+            guard let password = secret(of: kept) else {
+                unread += 1
+                continue
+            }
+            rows.append([kept.host, (kept.clear ? "http://" : "https://") + kept.host + "/", kept.user, password, ""])
+        }
+        return (csv(rows), rows.count - 1, unread)
+    }
+
+    /// Every field quoted and its quotes doubled: a password can hold a
+    /// comma, a quote, a line break or a leading space, and each has to come
+    /// back whole wherever the file is taken in.
+    static func csv(_ rows: [[String]]) -> String {
+        rows.map { row in
+            row.map { "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }.joined(separator: ",")
+        }.joined(separator: "\n") + "\n"
+    }
+
     // MARK: - sites that asked not to be asked
 
     private static let neverKey = "passwords.never"
@@ -456,7 +485,7 @@ enum Vault {
 
     /// Quoted fields, doubled quotes inside them, and newlines inside those —
     /// all three turn up in a real export.
-    private static func parse(csv text: String, control: ImportFile.Control? = nil) -> [[String]] {
+    static func parse(csv text: String, control: ImportFile.Control? = nil) -> [[String]] {
         var rows: [[String]] = []
         var row: [String] = []
         var field = ""
