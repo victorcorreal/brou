@@ -25,7 +25,10 @@ final class DownloadLifecycleTests: XCTestCase {
 
     override class func tearDown() {
         Disk.drain()
-        if let world = Store.world {
+        // Only the world this class asked for. Under XCTest every run has a
+        // world, and one fixed earlier in the process — "test" included — is
+        // not this class's to wipe.
+        if let world = Store.world, world == "download-ui-\(getpid())" {
             let suite = "com.officecommun.search.test.\(world)"
             UserDefaults.standard.removePersistentDomain(forName: suite)
             try? FileManager.default.removeItem(at: Store.folder)
