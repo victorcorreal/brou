@@ -9,18 +9,29 @@ import WebKit
 // make twice.
 
 enum Store {
-    /// A run is a test run if it says so, or if it is being run straight out
-    /// of the build folder rather than from an installed app. The second half
-    /// is not belt and braces: a development build launched from a terminal
-    /// once wrote over somebody's real session, and asking a person to
-    /// remember a flag is not a safeguard.
+    /// A run is a test run if it says so, if it is being run straight out of
+    /// the build folder rather than from an installed app, or if XCTest is
+    /// running it. The second half is not belt and braces: a development
+    /// build launched from a terminal once wrote over somebody's real
+    /// session, and asking a person to remember a flag is not a safeguard.
+    /// Nor is the third: under `swift test` the program is Xcode's xctest,
+    /// not one in the build folder, and a test that reached the passwords
+    /// read the real "Search" keychain items — one prompt for each.
     static var testing: Bool {
         if ProcessInfo.processInfo.environment["SEARCH_PROBE"] != nil { return true }
+        if underXCTest { return true }
         return Bundle.main.executablePath?.contains("/.build/") == true
     }
 
-    /// Which test world a test run lives in. SEARCH_PROBE=1, or a run from
-    /// the build folder, is the test world, "Search (test)". SEARCH_PROBE=
+    /// XCTest is loaded. Asked of the process rather than of its environment,
+    /// so it holds however the tests were started — `swift test`, Xcode, one
+    /// test picked out with a filter — and is not handed down to a program a
+    /// test launches. The shipped app never loads XCTest.
+    static let underXCTest = NSClassFromString("XCTestCase") != nil
+
+    /// Which test world a test run lives in. SEARCH_PROBE=1, a run from the
+    /// build folder, or XCTest without SEARCH_PROBE is the test world,
+    /// "Search (test)". SEARCH_PROBE=
     /// <name> is a world of its own, "Search (<name>)", with settings and
     /// WebKit stores of its own: two sessions testing at once, or a
     /// measurement that needs a browser nobody has installed anything in,
