@@ -70,6 +70,9 @@ struct PasswordsPanel: View {
                     Text(count)
                         .font(.system(size: 12))
                         .foregroundStyle(Palette.muted)
+                    if !browser.saved.isEmpty {
+                        Pill("Export…") { browser.exportPasswords() }
+                    }
                 }
                 Text("macOS asks once for that browser's keychain key. Nothing is changed there; everything lands in your own keychain and is available in Brou.")
                     .font(.system(size: 11.5))

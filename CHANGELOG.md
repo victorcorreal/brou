@@ -11,6 +11,10 @@ in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Added
+
+- Export… in Passwords writes every password to a CSV file you choose, in the columns Apple's Passwords, Chrome and Brou bring in. It asks for Touch ID or your password first, makes the file readable by you alone, and reminds you it holds them in the clear.
+
 ### Changed
 
 - A bookmark opens in a tab of its own, from the bookmarks bar, the Bookmarks menu or the list: opened from a pinned tab it used to take the pin's place. An empty new tab is used as it is, and ⌘ opens the bookmark behind the tab you are on.

@@ -871,6 +871,47 @@ final class Browser: NSObject, ObservableObject {
         relist()
     }
 
+    /// Every password, to a file you choose: to move them into another
+    /// password manager, or to set them beside what it already holds. Asked
+    /// for the way a password shown is. The file is made readable by you
+    /// alone before anything goes into it, and holds them in the clear until
+    /// you delete it.
+    func exportPasswords() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.nameFieldStringValue = "Brou Passwords.csv"
+        panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        panel.prompt = "Export"
+        panel.message = "Every password, in the clear, in a file Apple's Passwords, Chrome or Brou can bring in. Delete it once it has been used."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Vault.prove("export every password to a file") { [weak self] ok in
+            guard ok, let self else { return }
+            DispatchQueue.global(qos: .userInitiated).async {
+                let (csv, count, unread) = Vault.export()
+                // The panel has already asked about replacing one there.
+                try? FileManager.default.removeItem(at: url)
+                let fd = Darwin.open(url.path, O_WRONLY | O_CREAT | O_EXCL, 0o600)
+                var written = false
+                if fd >= 0 {
+                    let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+                    written = (try? handle.write(contentsOf: Data(csv.utf8))) != nil
+                    try? handle.close()
+                    // Half a file of passwords is no use to anyone.
+                    if !written { try? FileManager.default.removeItem(at: url) }
+                }
+                DispatchQueue.main.async {
+                    guard written else {
+                        self.announce("The file couldn't be written")
+                        return
+                    }
+                    var said = count == 1 ? "1 password exported" : "\(count) passwords exported"
+                    if unread > 0 { said += ", \(unread) the keychain refused" }
+                    self.announce(said + " — the file holds them in the clear: delete it once used", file: url)
+                }
+            }
+        }
+    }
+
     /// A password copied is asked for the way one shown is. It goes on this
     /// Mac's clipboard only, not to your other devices', marked concealed
     /// and transient, which is what clipboard managers go by to keep it out
